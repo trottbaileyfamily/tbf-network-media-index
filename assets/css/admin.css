@@ -1,0 +1,98 @@
+/* =========================================================
+   TBF Network Media Index - Admin Styles
+   File: assets/css/admin.css
+   Version: 1.0.21
+   Fix: Tiny thumbnails in media modal + keep selection UI
+   ========================================================= */
+
+/* Container */
+.tbf-nmi-view{
+  position:absolute;
+  top:0; left:0; right:0; bottom:0;
+  display:flex !important;
+  flex-direction:column !important;
+  background:#f0f0f1;
+}
+
+/* Toolbar */
+.tbf-nmi-toolbar{
+  padding:10px 20px;
+  border-bottom:1px solid #ccd0d4;
+  background:#fff;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+
+/* Grid */
+.tbf-nmi-grid{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:12px !important;
+  padding:16px !important;
+  margin:0 !important;
+  list-style:none !important;
+  overflow:auto !important;
+  flex:1 1 auto !important;
+}
+
+/* Tile size (this is what fixes “tiny images”) */
+.tbf-nmi-item{
+  width:150px !important;
+  height:150px !important;
+  min-width:150px !important;
+  min-height:150px !important;
+  position:relative !important;
+  cursor:pointer;
+}
+
+/* WP-like card */
+.tbf-nmi-item .attachment-preview{
+  width:150px !important;
+  height:150px !important;
+  position:relative !important;
+  overflow:hidden !important;
+  background:#fff;
+  border:1px solid #ccd0d4;
+  box-shadow:0 1px 1px rgba(0,0,0,.04);
+}
+
+/* Thumbnail wrapper */
+.tbf-nmi-item .thumbnail{
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:hidden !important;
+}
+
+/* Force image fill */
+.tbf-nmi-item .thumbnail img{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+  display:block !important;
+}
+
+/* Hide filename so it doesn’t shrink the tile */
+.tbf-nmi-item .filename{
+  display:none !important;
+}
+
+/* Hover highlight */
+.tbf-nmi-item:hover .attachment-preview{
+  box-shadow:0 0 0 2px #2271b1;
+}
+
+/* Selected (keep your working blue selector) */
+.tbf-nmi-item.is-selected .attachment-preview{
+  box-shadow:0 0 0 4px #2271b1;
+}
+
+/* File: assets/css/admin.css | Version: 2.1.0 */
+.tbf-nmi-grid .attachment .check { display:block !important; opacity:0; }
+.tbf-nmi-grid .attachment.is-selected .check { opacity:1; }
+.tbf-nmi-grid .attachment.is-selected .check .media-modal-icon:before { opacity:1; }
+
