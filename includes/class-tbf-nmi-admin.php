@@ -1,7 +1,7 @@
 <?php
 /*
  * File: includes/class-tbf-nmi-admin.php
- * Version: 4.0.1
+ * Version: 1.0.8
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -9,28 +9,29 @@ if ( ! defined('ABSPATH') ) exit;
 class TBF_NMI_Admin {
 
   public static function init() {
-    add_action('network_admin_menu', [__CLASS__, 'menu']);
-    add_action('admin_menu', [__CLASS__, 'menu']);
+    add_action('network_admin_menu', [__CLASS__, 'network_menu']);
+    add_action('admin_menu', [__CLASS__, 'single_menu']);
   }
 
-  public static function menu() {
-    // Network Admin (Multisite) settings page
-    if ( is_multisite() ) {
-      add_submenu_page(
-        'settings.php',
-        __('TBF Network Media Index', 'tbf-network-media-index'),
-        __('Network Media Index', 'tbf-network-media-index'),
-        'manage_network_options',
-        'tbf-nmi-settings',
-        [__CLASS__, 'render']
-      );
-      return;
-    }
+  public static function network_menu() {
+    if ( ! is_multisite() ) return;
 
-    // Single-site settings page
+    add_submenu_page(
+      'settings.php',
+      __('Network Media Index', 'tbf-nmi'),
+      __('Network Media Index', 'tbf-nmi'),
+      'manage_network_options',
+      'tbf-nmi-settings',
+      [__CLASS__, 'render']
+    );
+  }
+
+  public static function single_menu() {
+    if ( is_multisite() ) return;
+
     add_options_page(
-      __('TBF Network Media Index', 'tbf-network-media-index'),
-      __('Network Media Index', 'tbf-network-media-index'),
+      __('Network Media Index', 'tbf-nmi'),
+      __('Network Media Index', 'tbf-nmi'),
       'manage_options',
       'tbf-nmi-settings',
       [__CLASS__, 'render']
@@ -46,20 +47,7 @@ class TBF_NMI_Admin {
       $saved = get_option('tbf_nmi_settings', []);
     }
 
-    // Local defaults (so admin never fatals if core class is out-of-sync)
-    $defaults = [
-      'who_can_browse' => 'uploaders',
-      'insert_mode'    => 'proxy',
-      'per_page'       => 60,
-      'max_sites'      => 5000,
-    ];
-
-    // If the main plugin class provides defaults(), merge them in
-    if ( class_exists('TBF_Network_Media_Index') && method_exists('TBF_Network_Media_Index', 'defaults') ) {
-      $defaults = array_merge($defaults, (array) TBF_Network_Media_Index::defaults());
-    }
-
-    $s = array_merge($defaults, is_array($saved) ? $saved : []);
+    $s = array_merge(TBF_Network_Media_Index::defaults(), is_array($saved) ? $saved : []);
 
     if ( isset($_POST['tbf_nmi_save']) && check_admin_referer('tbf_nmi_save_settings') ) {
       $s['who_can_browse'] = in_array($_POST['who_can_browse'] ?? 'uploaders', ['uploaders','admins','superadmins'], true)
@@ -79,69 +67,58 @@ class TBF_NMI_Admin {
         update_option('tbf_nmi_settings', $s);
       }
 
-      echo '<div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>';
+      echo '<div class="notice notice-success"><p>Saved.</p></div>';
     }
 
-    $who = $s['who_can_browse'] ?? 'uploaders';
-    $insert = $s['insert_mode'] ?? 'proxy';
-    $per_page = (int) ($s['per_page'] ?? 60);
-    $max_sites = (int) ($s['max_sites'] ?? 5000);
+    ?>
+    <div class="wrap">
+      <h1>Network Media Index (No Copy)</h1>
+      <p class="description">
+        This plugin lets editors browse media from any site in the network and insert it without copying or moving files.
+        For Featured Image support, it can create a DB-only proxy attachment on the current site.
+      </p>
 
-    echo '<div class="wrap">';
-    echo '<h1>TBF Network Media Index</h1>';
-    echo '<p>Browse and insert media from any site in the multisite network without copying files.</p>';
+      <form method="post">
+        <?php wp_nonce_field('tbf_nmi_save_settings'); ?>
 
-    echo '<form method="post">';
-    wp_nonce_field('tbf_nmi_save_settings');
+        <table class="form-table" role="presentation">
+          <tr>
+            <th scope="row">Who can browse Network Media</th>
+            <td>
+              <select name="who_can_browse">
+                <option value="uploaders" <?php selected($s['who_can_browse'], 'uploaders'); ?>>Users who can upload files (recommended)</option>
+                <option value="admins" <?php selected($s['who_can_browse'], 'admins'); ?>>Admins only</option>
+                <option value="superadmins" <?php selected($s['who_can_browse'], 'superadmins'); ?>>Super admins only</option>
+              </select>
+            </td>
+          </tr>
 
-    echo '<table class="form-table" role="presentation">';
+          <tr>
+            <th scope="row">Insert mode</th>
+            <td>
+              <select name="insert_mode">
+                <option value="proxy" <?php selected($s['insert_mode'], 'proxy'); ?>>Proxy attachment (DB-only, supports Featured Image)</option>
+                <option value="url" <?php selected($s['insert_mode'], 'url'); ?>>Insert URL only (no local attachment record)</option>
+              </select>
+            </td>
+          </tr>
 
-    echo '<tr>';
-    echo '<th scope="row"><label for="who_can_browse">Who can browse Network Media?</label></th>';
-    echo '<td>';
-    echo '<select name="who_can_browse" id="who_can_browse">';
-    echo '<option value="uploaders"' . selected($who, 'uploaders', false) . '>Uploaders (can upload files)</option>';
-    echo '<option value="admins"' . selected($who, 'admins', false) . '>Admins (manage options)</option>';
-    echo '<option value="superadmins"' . selected($who, 'superadmins', false) . '>Super Admins only</option>';
-    echo '</select>';
-    echo '<p class="description">Controls which logged-in roles can open the Network Media modal.</p>';
-    echo '</td>';
-    echo '</tr>';
+          <tr>
+            <th scope="row">Items per page</th>
+            <td><input type="number" name="per_page" value="<?php echo esc_attr((int)$s['per_page']); ?>" min="10" max="200"></td>
+          </tr>
 
-    echo '<tr>';
-    echo '<th scope="row"><label for="insert_mode">Insert Mode</label></th>';
-    echo '<td>';
-    echo '<select name="insert_mode" id="insert_mode">';
-    echo '<option value="proxy"' . selected($insert, 'proxy', false) . '>Proxy attachment (recommended)</option>';
-    echo '<option value="url"' . selected($insert, 'url', false) . '>Direct URL</option>';
-    echo '</select>';
-    echo '<p class="description">Proxy mode improves editor compatibility (featured image, galleries) while keeping the file remote.</p>';
-    echo '</td>';
-    echo '</tr>';
+          <tr>
+            <th scope="row">Max sites scanned</th>
+            <td><input type="number" name="max_sites" value="<?php echo esc_attr((int)$s['max_sites']); ?>" min="1" max="20000"></td>
+          </tr>
+        </table>
 
-    echo '<tr>';
-    echo '<th scope="row"><label for="per_page">Items per page</label></th>';
-    echo '<td>';
-    echo '<input type="number" min="10" max="200" step="1" name="per_page" id="per_page" value="' . esc_attr($per_page) . '">';
-    echo '<p class="description">Controls how many items are loaded per page in the Network Media browser.</p>';
-    echo '</td>';
-    echo '</tr>';
-
-    echo '<tr>';
-    echo '<th scope="row"><label for="max_sites">Max sites to scan/list</label></th>';
-    echo '<td>';
-    echo '<input type="number" min="1" max="20000" step="1" name="max_sites" id="max_sites" value="' . esc_attr($max_sites) . '">';
-    echo '<p class="description">Safety cap for very large networks.</p>';
-    echo '</td>';
-    echo '</tr>';
-
-    echo '</table>';
-
-    echo '<p>';
-    echo '<button type="submit" class="button button-primary" name="tbf_nmi_save" value="1">Save Settings</button>';
-    echo '</p>';
-
-    echo '</form>';
-    echo '</div>';
+        <p>
+          <button class="button button-primary" name="tbf_nmi_save" value="1">Save</button>
+        </p>
+      </form>
+    </div>
+    <?php
   }
 }

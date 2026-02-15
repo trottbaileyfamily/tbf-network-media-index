@@ -1,12 +1,13 @@
 /* global jQuery, _, Backbone, wp, TBF_NMI */
 /* =========================================================
+   TBF Network Media Index - Media Modal Tab
    File: assets/js/modal.js
-   Version: 3.0.3
+   Version: 1.0.27
 
-   Featured (Gutenberg/REST):
-   - Save remote featured meta via AJAX (tbf_nmi_set_featured_remote)
-   - Set featured_media to placeholder attachment (prevents WP REST from deleting _thumbnail_id)
-   - Show visible errors if AJAX fails (so it never silently "stays placeholder")
+   Gutenberg Featured Image fix:
+   - Never use id=-1 in selection.
+   - Use a real placeholder attachment id while proxy prepares.
+   - Swap to real proxy attachment id when ready.
    ========================================================= */
 (function ($) {
   if (!window.wp || !wp.media || !window.TBF_NMI) return;
@@ -17,13 +18,6 @@
   const err  = (...a) => { if (DEBUG) console.error('[TBF_NMI]', ...a); };
 
   const PLACEHOLDER_ID = parseInt((TBF_NMI && TBF_NMI.placeholderId) ? TBF_NMI.placeholderId : 0, 10) || 0;
-
-  function getCurrentPostId() {
-    try {
-      const id = wp.media?.model?.settings?.post?.id;
-      return parseInt(id || 0, 10) || 0;
-    } catch (e) { return 0; }
-  }
 
   const Ajax = {
     list(params) {
@@ -57,239 +51,136 @@
           origin_attachment_id: originAttId
         }
       });
-    },
-    proxyUrl(payload) {
-      return $.ajax({
-        url: TBF_NMI.ajax,
-        method: 'POST',
-        cache: false,
-        dataType: 'json',
-        data: Object.assign({ action: 'tbf_nmi_proxy_url', nonce: TBF_NMI.nonce }, payload || {})
-      });
-    },
-    setFeaturedRemote(payload) {
-      return $.ajax({
-        url: TBF_NMI.ajax,
-        method: 'POST',
-        cache: false,
-        dataType: 'json',
-        data: Object.assign({ action: 'tbf_nmi_set_featured_remote', nonce: TBF_NMI.nonce }, payload || {})
-      });
     }
   };
 
-  function getFrameSelection(frame) {
-    try {
-      const state = frame && frame.state && frame.state();
-      return state && state.get ? state.get('selection') : null;
-    } catch (e) { return null; }
-  }
-
-  function getFrameStateId(frame) {
-    try {
-      const state = frame && frame.state && frame.state();
-      return state && state.id ? state.id : '';
-    } catch (e) { return ''; }
-  }
-
-  function isMultiSelectFrame(frame) {
-    const sid = (getFrameStateId(frame) || '').toLowerCase();
-    if (sid.indexOf('gallery') === 0) return true;
-    if (sid.indexOf('playlist') !== -1) return true;
-    if (sid.indexOf('video-playlist') !== -1) return true;
-    try { if (frame && frame.options && frame.options.multiple) return true; } catch (e) {}
-    return false;
-  }
-
-  function setFrameSelectionSingle(frame, attachmentId) {
+  function setFrameSelection(frame, attachmentId) {
     const attachment = wp.media.model.Attachment.get(attachmentId);
     try { attachment.fetch(); } catch(_){}
-    const selection = getFrameSelection(frame);
-    if (selection && selection.reset) selection.reset([attachment]);
-    return attachment;
-  }
 
-  function addToFrameSelection(frame, attachmentId) {
-    const attachment = wp.media.model.Attachment.get(attachmentId);
-    try { attachment.fetch(); } catch(_){}
-    const selection = getFrameSelection(frame);
-    if (!selection) return attachment;
-    if (selection.get && selection.get(attachmentId)) return attachment;
-    if (selection.add) selection.add(attachment);
-    return attachment;
-  }
+    try {
+      const state = frame && frame.state && frame.state();
+      const selection = state && state.get && state.get('selection');
+      if (selection && selection.reset) selection.reset([attachment]);
+    } catch(_){}
 
-  function removeFromFrameSelection(frame, attachmentId) {
-    const selection = getFrameSelection(frame);
-    if (!selection) return;
-    if (selection.get && selection.get(attachmentId)) {
-      const model = selection.get(attachmentId);
-      if (selection.remove) selection.remove(model);
-    }
+    return attachment;
   }
 
   function clearFrameSelection(frame) {
-    const selection = getFrameSelection(frame);
-    if (selection && selection.reset) selection.reset([]);
+    try {
+      const state = frame && frame.state && frame.state();
+      const selection = state && state.get && state.get('selection');
+      if (selection && selection.reset) selection.reset([]);
+    } catch(_){}
   }
 
   const Controller = function(frame){
     this.frame = frame;
-    this.selectedMap = {};
-    this.viewInstance = null;
+    this.selected = null;
+    this.preparedLocalId = 0;
     this.proxyCache = {};
-  };
-
-  Controller.prototype._key = function(model){
-    const m = model.toJSON();
-    if (m.source === 'vkmedia') return 'vk:' + String(m.vkmedia_id || 0) + ':' + String(m.user_id || 0);
-    return String(m.blog_id) + ':' + String(m.attachment_id);
-  };
-
-  Controller.prototype._setStatus = function(msg){
-    if (this.viewInstance && this.viewInstance.setStatus) this.viewInstance.setStatus(msg);
-  };
-
-  Controller.prototype._selectUI = function(key, on){
-    if (this.viewInstance && this.viewInstance.markTileSelectedByKey) this.viewInstance.markTileSelectedByKey(key, on);
-  };
-
-  Controller.prototype._markPending = function(key, on){
-    if (this.viewInstance && this.viewInstance.markTilePendingByKey) this.viewInstance.markTilePendingByKey(key, on);
+    this.viewInstance = null;
   };
 
   Controller.prototype.clear = function(){
-    Object.keys(this.selectedMap).forEach((k) => {
-      this._selectUI(k, false);
-      this._markPending(k, false);
-    });
-    this.selectedMap = {};
+    this.selected = null;
+    this.preparedLocalId = 0;
     clearFrameSelection(this.frame);
   };
 
-  Controller.prototype._enforceSingleSelection = function(){
-    clearFrameSelection(this.frame);
-    Object.keys(this.selectedMap).forEach((k) => {
-      const entry = this.selectedMap[k];
-      if (entry && entry.localId) removeFromFrameSelection(this.frame, entry.localId);
-      this._selectUI(k, false);
-      this._markPending(k, false);
-    });
-    this.selectedMap = {};
-  };
+  Controller.prototype.setSelected = function(model){
+    this.selected = model;
+    this.preparedLocalId = 0;
 
-  Controller.prototype.toggleSelected = function(model){
-    const key = this._key(model);
-    const multi = isMultiSelectFrame(this.frame);
     const m = model.toJSON();
+    const originBlog = m.blog_id;
+    const originAtt  = m.attachment_id;
+    const key = String(originBlog) + ':' + String(originAtt);
 
-    log('Selected network item:', m);
-
-    if (!multi) this._enforceSingleSelection();
-
-    if (this.selectedMap[key]) {
-      if (multi) {
-        const entry = this.selectedMap[key];
-        if (entry && entry.localId) removeFromFrameSelection(this.frame, entry.localId);
-        delete this.selectedMap[key];
-        this._selectUI(key, false);
-        this._markPending(key, false);
-        this._setStatus('');
-      }
-      return;
+    if (this.viewInstance && this.viewInstance.setStatus) {
+      this.viewInstance.setStatus('Preparing...');
     }
 
-    this.selectedMap[key] = { model, localId: 0, pending: true };
-    this._selectUI(key, true);
-    this._markPending(key, true);
-    this._setStatus('Preparing...');
+    log('Selected network item:', {
+      blog_id: originBlog,
+      attachment_id: originAtt,
+      url: m.url,
+      thumb: m.thumb,
+      mime: m.mime
+    });
 
-    if (!multi) {
-      if (PLACEHOLDER_ID > 0) setFrameSelectionSingle(this.frame, PLACEHOLDER_ID);
-      else clearFrameSelection(this.frame);
+    // IMPORTANT: Immediately set a REAL attachment into selection (placeholder),
+    // so Gutenberg never tries /media/-1.
+    if (PLACEHOLDER_ID > 0) {
+      setFrameSelection(this.frame, PLACEHOLDER_ID);
+    } else {
+      // If placeholder missing, better to keep selection empty than -1
+      clearFrameSelection(this.frame);
+      warn('PlaceholderId missing. Featured image may stay disabled until proxy is ready.');
     }
 
-    // Cached local id?
+    // Cached proxy?
     if (this.proxyCache[key]) {
       const localId = this.proxyCache[key];
-      this.selectedMap[key].localId = localId;
-      this.selectedMap[key].pending = false;
-      this._markPending(key, false);
-      if (multi) addToFrameSelection(this.frame, localId);
-      else setFrameSelectionSingle(this.frame, localId);
-      this._setStatus('');
+      this.preparedLocalId = localId;
+      setFrameSelection(this.frame, localId);
+      if (this.viewInstance && this.viewInstance.setStatus) this.viewInstance.setStatus('');
+      log('Reused cached proxy attachment:', localId);
       return;
     }
 
-    const done = (localId) => {
-      this.proxyCache[key] = localId;
-      if (!this.selectedMap[key]) return;
-
-      this.selectedMap[key].localId = localId;
-      this.selectedMap[key].pending = false;
-      this._markPending(key, false);
-
-      if (multi) addToFrameSelection(this.frame, localId);
-      else setFrameSelectionSingle(this.frame, localId);
-
-      this._setStatus('');
-      log('Prepared local attachment:', localId);
-    };
-
-    const fail = (xhrOrResp) => {
-      err('Proxy failed:', xhrOrResp);
-      this._setStatus('Proxy failed.');
-      this._markPending(key, false);
-    };
-
-    if (m.source === 'vkmedia') {
-      Ajax.proxyUrl({
-        source: 'vkmedia',
-        vkmedia_id: m.vkmedia_id || 0,
-        user_id: m.user_id || 0,
-        url: m.url || '',
-        title: m.title || 'Vikinger Media',
-        mime: m.mime || 'image/*'
-      })
+    Ajax.proxy(originBlog, originAtt)
       .done((resp) => {
-        if (!resp || resp.success !== true || !resp.data) return fail(resp);
-        const localId = resp.data.local_attachment_id;
-        if (!localId) return fail(resp);
-        done(localId);
-      })
-      .fail(fail);
-      return;
-    }
+        if (!resp || resp.success !== true || !resp.data) {
+          warn('Proxy response invalid:', resp);
+          if (this.viewInstance && this.viewInstance.setStatus) this.viewInstance.setStatus('Proxy error.');
+          return;
+        }
 
-    Ajax.proxy(m.blog_id, m.attachment_id)
-      .done((resp) => {
-        if (!resp || resp.success !== true || !resp.data) return fail(resp);
-        const localId = resp.data.local_attachment_id;
-        if (!localId) return fail(resp);
-        done(localId);
+        const localId = resp.data.local_attachment_id || resp.data.id || resp.data.attachment_id;
+        if (!localId) {
+          warn('Proxy response missing local ID:', resp);
+          if (this.viewInstance && this.viewInstance.setStatus) this.viewInstance.setStatus('Proxy missing local ID.');
+          return;
+        }
+
+        this.proxyCache[key] = localId;
+        this.preparedLocalId = localId;
+
+        // Swap selection to REAL proxy attachment id (Gutenberg REST fetch now works)
+        setFrameSelection(this.frame, localId);
+
+        if (this.viewInstance && this.viewInstance.setStatus) this.viewInstance.setStatus('');
+        log('Prepared proxy attachment:', localId);
       })
-      .fail(fail);
+      .fail((xhr) => {
+        err('Proxy failed:', xhr);
+        if (this.viewInstance && this.viewInstance.setStatus) this.viewInstance.setStatus('Proxy failed.');
+      });
   };
 
   const ItemView = Backbone.View.extend({
     tagName: 'li',
     className: 'tbf-nmi-item attachment',
     events: { click: 'select' },
-    initialize(opts){ this.controller = opts.controller; this.key = opts.key; },
+    initialize(opts){ this.controller = opts.controller; },
     render(){
       const m = this.model.toJSON();
       const thumb = m.thumb || m.url || '';
       this.$el.html(
         '<div class="attachment-preview js--select-attachment">' +
           '<div class="thumbnail"><div class="centered"><img src="' + _.escape(thumb) + '" alt=""></div></div>' +
-          '<button type="button" class="check" tabindex="-1" aria-hidden="true"><span class="media-modal-icon"></span></button>' +
           '<div class="filename"><div>' + _.escape(m.title || '') + '</div></div>' +
         '</div>'
       );
-      this.$el.attr('data-tbf-nmi-key', this.key);
       return this;
     },
-    select(e){ e.preventDefault(); this.controller.toggleSelected(this.model); }
+    select(){
+      this.controller.setSelected(this.model);
+      this.$el.closest('ul').find('.tbf-nmi-item').removeClass('is-selected');
+      this.$el.addClass('is-selected');
+    }
   });
 
   const NetworkMediaView = wp.media.View.extend({
@@ -301,18 +192,22 @@
       'change .tbf-nmi-mime': 'refresh',
       'change .tbf-nmi-origin': 'refresh'
     },
+
     initialize(opts){
       this.controller = opts.controller;
       this.page = 1;
       this.loading = false;
       this.done = false;
+
       this.query = '';
       this.mime = '';
       this.origin_blog_id = '';
+
       this.total = 0;
       this.max_pages = 1;
       this._searchTimer = null;
     },
+
     render(){
       this.$el.html(
         '<div class="tbf-nmi-toolbar">' +
@@ -344,13 +239,18 @@
       this.refresh();
       return this;
     },
-    setStatus(msg){ if (this.$status) this.$status.text(msg ? (' ' + msg) : ''); },
+
+    setStatus(msg){
+      if (this.$status) this.$status.text(msg ? (' ' + msg) : '');
+    },
+
     setMeta(){
       const shownPage = Math.max(1, this.page);
       const mp = Math.max(1, this.max_pages || 1);
       const t = Math.max(0, this.total || 0);
       if (this.$meta) this.$meta.text('Items: ' + t + ' (page ' + shownPage + ' of ' + mp + ')');
     },
+
     populateSites(){
       Ajax.sites().done((res) => {
         if (!res || res.success !== true || !res.data) return;
@@ -363,11 +263,13 @@
         });
       }).fail(() => {});
     },
+
     onSearchInput(){
       this.query = (this.$('.tbf-nmi-search').val() || '').trim();
       clearTimeout(this._searchTimer);
       this._searchTimer = setTimeout(() => this.refresh(), 250);
     },
+
     refresh(){
       this.page = 1;
       this.done = false;
@@ -375,14 +277,7 @@
       this.controller.clear();
       this.loadMore(true);
     },
-    markTileSelectedByKey(key, on){
-      const $el = this.$grid.find('[data-tbf-nmi-key="' + key.replace(/"/g,'&quot;') + '"]').first();
-      if ($el && $el.length) $el.toggleClass('is-selected', !!on);
-    },
-    markTilePendingByKey(key, on){
-      const $el = this.$grid.find('[data-tbf-nmi-key="' + key.replace(/"/g,'&quot;') + '"]').first();
-      if ($el && $el.length) $el.toggleClass('is-pending', !!on);
-    },
+
     loadMore(isFirst){
       if (this.loading || this.done) return;
 
@@ -408,30 +303,22 @@
         const data = res.data;
         const items = data.items || [];
 
-        this.total = parseInt(data.total || 0, 10) || 0;
-        this.max_pages = parseInt(data.max_pages || 1, 10) || 1;
+        if (typeof data.total !== 'undefined') this.total = parseInt(data.total, 10) || 0;
+        if (typeof data.max_pages !== 'undefined') this.max_pages = parseInt(data.max_pages, 10) || 1;
+
         this.setMeta();
 
         if (!items.length) {
-          this.setStatus(isFirst ? 'No items found.' : 'No more items.');
+          const msg = data.message ? (' ' + data.message) : '';
+          this.setStatus(isFirst ? ('No items found.' + msg) : ('No more items.' + msg));
           this.done = true;
           return;
         }
 
         items.forEach((it) => {
           const model = new Backbone.Model(it);
-          const key = (it.source === 'vkmedia')
-            ? ('vk:' + String(it.vkmedia_id || 0) + ':' + String(it.user_id || 0))
-            : (String(it.blog_id) + ':' + String(it.attachment_id));
-
-          const view = new ItemView({ model, controller: this.controller, key });
-          const el = view.render().el;
-          this.$grid.append(el);
-
-          if (this.controller.selectedMap[key]) {
-            $(el).addClass('is-selected');
-            if (this.controller.selectedMap[key].pending) $(el).addClass('is-pending');
-          }
+          const view = new ItemView({ model, controller: this.controller });
+          this.$grid.append(view.render().el);
         });
 
         this.setStatus('');
@@ -439,19 +326,28 @@
         this.setMeta();
       })
       .fail((xhr) => {
-        this.setStatus('AJAX failed');
+        let hint = '';
+        if (xhr && typeof xhr.responseText === 'string') {
+          if (xhr.responseText.trim() === '-1') hint = ' (nonce failed: refresh the page)';
+          else if (xhr.responseText.toLowerCase().includes('<html')) hint = ' (HTML returned: check PHP errors/permissions)';
+        }
+        this.setStatus('AJAX failed' + hint);
         err('TBF NMI list error', xhr);
       })
-      .always(() => { this.loading = false; });
+      .always(() => {
+        this.loading = false;
+      });
     }
   });
 
+  // Add router tab
   const oldBrowseRouter = wp.media.view.MediaFrame.Select.prototype.browseRouter;
   wp.media.view.MediaFrame.Select.prototype.browseRouter = function(routerView){
     oldBrowseRouter.apply(this, arguments);
     routerView.set('tbf-network-media', { text: 'Network Media', priority: 80 });
   };
 
+  // Render tab + hook the Select button
   const oldBindHandlers = wp.media.view.MediaFrame.Select.prototype.bindHandlers;
   wp.media.view.MediaFrame.Select.prototype.bindHandlers = function(){
     oldBindHandlers.apply(this, arguments);
@@ -463,66 +359,24 @@
 
       this.content.set(view);
 
-      if (isMultiSelectFrame(this)) return;
-
       const toolbar = this.toolbar && this.toolbar.get && this.toolbar.get('select');
-      if (!toolbar) return;
+      if (toolbar) {
+        toolbar.click = () => {
+          const localId = controller.preparedLocalId;
 
-      const frame = this;
-      toolbar.click = () => {
-        const keys = Object.keys(controller.selectedMap);
-        if (!keys.length) return;
+          if (!localId) {
+            warn('Toolbar clicked but proxy not ready yet (wait for "Preparing..." to clear).');
+            return;
+          }
 
-        const entry = controller.selectedMap[keys[0]];
-        if (!entry || entry.pending || !entry.localId) {
-          controller._setStatus('Preparing...');
-          return;
-        }
+          const attachment = setFrameSelection(this, localId);
 
-        const postId = getCurrentPostId();
-        if (!postId) {
-          alert('TBF NMI: Could not detect post ID (wp.media.model.settings.post.id).');
-          controller._setStatus('Cannot detect post ID.');
-          return;
-        }
+          this.close();
+          this.state().trigger('select', attachment);
 
-        const m = entry.model ? entry.model.toJSON() : {};
-        const url = m.url || '';
-        const mime = m.mime || 'application/octet-stream';
-        const type = (m.media_type || '').toLowerCase() || (
-          (mime.indexOf('video/') === 0) ? 'video' :
-          (mime.indexOf('audio/') === 0) ? 'audio' :
-          (mime.indexOf('image/') === 0) ? 'image' : 'file'
-        );
-
-        controller._setStatus('Saving featured...');
-        log('Saving featured remote meta', { postId, url, mime, type });
-
-        Ajax.setFeaturedRemote({ post_id: postId, url, mime, type })
-          .done((resp) => {
-            log('setFeaturedRemote response', resp);
-            if (!resp || resp.success !== true) {
-              alert('TBF NMI: Failed to save featured remote meta. Check console for details.');
-              controller._setStatus('Failed to save featured.');
-              return;
-            }
-
-            if (PLACEHOLDER_ID <= 0) {
-              alert('TBF NMI: Placeholder attachment is missing.');
-              controller._setStatus('Placeholder missing.');
-              return;
-            }
-
-            const attachment = setFrameSelectionSingle(frame, PLACEHOLDER_ID);
-            frame.close();
-            frame.state().trigger('select', attachment);
-          })
-          .fail((xhr) => {
-            err('setFeaturedRemote AJAX failed', xhr);
-            alert('TBF NMI: AJAX failed saving featured remote meta. Check console.');
-            controller._setStatus('AJAX failed.');
-          });
-      };
+          log('Triggered frame select with local attachment:', localId);
+        };
+      }
     });
   };
 

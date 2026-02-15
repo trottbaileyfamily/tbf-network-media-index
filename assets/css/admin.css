@@ -90,9 +90,3 @@
 .tbf-nmi-item.is-selected .attachment-preview{
   box-shadow:0 0 0 4px #2271b1;
 }
-
-/* File: assets/css/admin.css | Version: 2.1.0 */
-.tbf-nmi-grid .attachment .check { display:block !important; opacity:0; }
-.tbf-nmi-grid .attachment.is-selected .check { opacity:1; }
-.tbf-nmi-grid .attachment.is-selected .check .media-modal-icon:before { opacity:1; }
-
