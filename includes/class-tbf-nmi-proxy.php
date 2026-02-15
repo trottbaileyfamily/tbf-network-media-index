@@ -1,15 +1,14 @@
 <?php
 /**
  * File: includes/class-tbf-nmi-proxy.php
- * Version: 4.0.1
+ * Version: 4.1.8
  *
  * Attachment "proxy" creator:
  * - Creates a local attachment pointing to a remote file URL (no copying).
- * - Used by the WP media modal "Network Media" tab for inserting media safely.
+ * - Used by the media modal "Network Media" tab.
  *
- * v4.0.1 fix:
- * - Use wp_insert_post for attachment creation (avoid file-path assumptions)
- * - Ensure GUID is remote URL and proxy meta is set
+ * This class intentionally does NOT attempt to make proxy attachments behave like local files.
+ * Featured media behavior is handled by TBF_NMI_Featured_Media (FIFU-style).
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -34,17 +33,16 @@ class TBF_NMI_Proxy {
     $originBlogId = isset($args['origin_blog_id']) ? (int)$args['origin_blog_id'] : 0;
     $originAttId  = isset($args['origin_attachment_id']) ? (int)$args['origin_attachment_id'] : 0;
 
-    $url   = isset($args['url']) ? esc_url_raw((string)$args['url']) : '';
-    $title = isset($args['title']) ? sanitize_text_field((string)$args['title']) : '';
-    $mime  = isset($args['mime']) ? sanitize_text_field((string)$args['mime']) : '';
-    $source = isset($args['source']) ? sanitize_key((string)$args['source']) : 'network';
-    $extraMeta = isset($args['extra_meta']) && is_array($args['extra_meta']) ? $args['extra_meta'] : [];
+    $url       = isset($args['url']) ? esc_url_raw((string)$args['url']) : '';
+    $title     = isset($args['title']) ? sanitize_text_field((string)$args['title']) : '';
+    $mime      = isset($args['mime']) ? sanitize_text_field((string)$args['mime']) : '';
+    $source    = isset($args['source']) ? sanitize_key((string)$args['source']) : 'network';
+    $extraMeta = (isset($args['extra_meta']) && is_array($args['extra_meta'])) ? $args['extra_meta'] : [];
 
     if ( ! $url ) {
       return new WP_Error('tbf_nmi_proxy_missing_url', 'Missing remote URL.');
     }
 
-    // Avoid duplicates
     $existing = self::find_existing_proxy($source, $originBlogId, $originAttId, $url);
     if ( $existing ) return $existing;
 
@@ -53,14 +51,13 @@ class TBF_NMI_Proxy {
       $title = preg_replace('/\.[a-z0-9]{1,6}$/i', '', $title);
       $title = str_replace(['-', '_'], ' ', $title);
       $title = trim($title);
-      if ($title === '') $title = 'Network Media';
+      if ( $title === '' ) $title = 'Network Media';
     }
 
     if ( $mime === '' ) {
       $mime = self::guess_mime_from_url($url);
     }
     if ( $mime === '' ) {
-      // keep a safe fallback
       $mime = 'application/octet-stream';
     }
 
@@ -76,7 +73,6 @@ class TBF_NMI_Proxy {
     if ( is_wp_error($attId) ) return $attId;
     $attId = (int)$attId;
 
-    // Mark it as a proxy
     update_post_meta($attId, '_tbf_nmi_is_proxy', 1);
     update_post_meta($attId, '_tbf_nmi_proxy_source', $source);
     update_post_meta($attId, '_tbf_nmi_proxy_url', $url);
@@ -84,12 +80,10 @@ class TBF_NMI_Proxy {
     if ( $originBlogId > 0 ) update_post_meta($attId, '_tbf_nmi_origin_blog_id', $originBlogId);
     if ( $originAttId > 0 ) update_post_meta($attId, '_tbf_nmi_origin_attachment_id', $originAttId);
 
-    // Help WP generate alt text baseline for images
     if ( strpos($mime, 'image/') === 0 ) {
       update_post_meta($attId, '_wp_attachment_image_alt', $title);
     }
 
-    // Store extra meta
     foreach ( $extraMeta as $k => $v ) {
       $k = sanitize_key((string)$k);
       if ( $k === '' ) continue;
@@ -151,26 +145,26 @@ class TBF_NMI_Proxy {
   }
 
   private static function guess_mime_from_url($url) {
-    $path = (string)parse_url($url, PHP_URL_PATH);
+    $path = (string) parse_url($url, PHP_URL_PATH);
     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 
     $map = [
-      'jpg' => 'image/jpeg',
-      'jpeg'=> 'image/jpeg',
-      'png' => 'image/png',
-      'gif' => 'image/gif',
-      'webp'=> 'image/webp',
-      'svg' => 'image/svg+xml',
+      'jpg'  => 'image/jpeg',
+      'jpeg' => 'image/jpeg',
+      'png'  => 'image/png',
+      'gif'  => 'image/gif',
+      'webp' => 'image/webp',
+      'svg'  => 'image/svg+xml',
 
-      'mp4' => 'video/mp4',
-      'webm'=> 'video/webm',
-      'mov' => 'video/quicktime',
+      'mp4'  => 'video/mp4',
+      'webm' => 'video/webm',
+      'mov'  => 'video/quicktime',
 
-      'mp3' => 'audio/mpeg',
-      'wav' => 'audio/wav',
-      'ogg' => 'audio/ogg',
+      'mp3'  => 'audio/mpeg',
+      'wav'  => 'audio/wav',
+      'ogg'  => 'audio/ogg',
 
-      'pdf' => 'application/pdf',
+      'pdf'  => 'application/pdf',
     ];
 
     return $map[$ext] ?? '';

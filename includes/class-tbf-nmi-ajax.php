@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/class-tbf-nmi-ajax.php
- * Version: 4.0.0
+ * Version: 4.2.3
  *
  * AJAX endpoints used by assets/js/modal.js
  *
@@ -10,8 +10,9 @@
  * - tbf_nmi_sites
  * - tbf_nmi_proxy
  * - tbf_nmi_proxy_url
+ * - tbf_nmi_set_featured_remote
  *
- * v4 change:
+ * v4:
  * - If the Photofall index table exists, listing pulls from it (FAST).
  * - Falls back to cross-blog WP_Query if index table is missing.
  */
@@ -25,6 +26,7 @@ class TBF_NMI_AJAX {
     add_action('wp_ajax_tbf_nmi_sites', [__CLASS__, 'sites']);
     add_action('wp_ajax_tbf_nmi_proxy', [__CLASS__, 'proxy']);
     add_action('wp_ajax_tbf_nmi_proxy_url', [__CLASS__, 'proxy_url']);
+    add_action('wp_ajax_tbf_nmi_set_featured_remote', [__CLASS__, 'set_featured_remote']);
   }
 
   private static function verify() {
@@ -32,6 +34,61 @@ class TBF_NMI_AJAX {
       wp_send_json_error(['message' => 'Permission denied'], 403);
     }
     check_ajax_referer('tbf_nmi_nonce', 'nonce');
+  }
+
+  /**
+   * Save remote featured media (no file copying):
+   * - Stores URL/type/mime on the post
+   * - Forces _thumbnail_id to placeholder to keep Gutenberg stable
+   */
+  public static function set_featured_remote() {
+    self::verify();
+
+    $postId = (int)($_POST['post_id'] ?? 0);
+    if ($postId <= 0) {
+      wp_send_json_error(['message' => 'Missing post_id'], 400);
+    }
+
+    if ( ! current_user_can('edit_post', $postId) ) {
+      wp_send_json_error(['message' => 'Cannot edit post'], 403);
+    }
+
+    $url  = esc_url_raw((string)($_POST['url'] ?? ''));
+    $mime = sanitize_text_field((string)($_POST['mime'] ?? 'application/octet-stream'));
+    $type = sanitize_key((string)($_POST['type'] ?? ''));
+
+    if ($url === '') {
+      wp_send_json_error(['message' => 'Missing url'], 400);
+    }
+
+    if (!in_array($type, ['image','video','audio','file'], true)) {
+      $type = 'file';
+      if (strpos($mime, 'image/') === 0) $type = 'image';
+      elseif (strpos($mime, 'video/') === 0) $type = 'video';
+      elseif (strpos($mime, 'audio/') === 0) $type = 'audio';
+    }
+
+    update_post_meta($postId, '_tbf_nmi_featured_url', $url);
+    update_post_meta($postId, '_tbf_nmi_featured_mime', $mime);
+    update_post_meta($postId, '_tbf_nmi_featured_type', $type);
+
+    $pid = 0;
+    if (class_exists('TBF_NMI_Placeholder')) {
+      $pid = (int) TBF_NMI_Placeholder::get_id();
+      if ($pid > 0) {
+        update_post_meta($postId, '_thumbnail_id', $pid);
+      }
+    }
+
+    clean_post_cache($postId);
+
+    wp_send_json_success([
+      'post_id' => $postId,
+      'placeholder_id' => $pid,
+      'url' => $url,
+      'mime' => $mime,
+      'type' => $type,
+    ]);
   }
 
   public static function list_items() {
@@ -75,6 +132,12 @@ class TBF_NMI_AJAX {
       } elseif ( $mime === 'video' ) {
         $where .= " AND media_type = %s";
         $params[] = 'video';
+      } elseif ( $mime === 'audio' ) {
+        $where .= " AND media_type = %s";
+        $params[] = 'audio';
+      } elseif ( $mime === 'application' ) {
+        $where .= " AND media_type = %s";
+        $params[] = 'application';
       }
     }
 
@@ -89,7 +152,7 @@ class TBF_NMI_AJAX {
 
     $offset = ($page - 1) * $per;
 
-    $sql = "SELECT blog_id, attachment_id, title, mime, media_type, url_full, url_thumb, poster_url, created_gmt
+    $sql = "SELECT blog_id, attachment_id, title, mime, media_type, url_full, url_medium, url_thumb, poster_url, created_gmt
             FROM {$table}
             WHERE {$where}
             ORDER BY created_gmt DESC, blog_id DESC, attachment_id DESC
@@ -103,7 +166,7 @@ class TBF_NMI_AJAX {
 
     $items = [];
     foreach ((array)$rows as $r) {
-      $thumb = $r['url_thumb'] ?: ($r['poster_url'] ?: $r['url_full']);
+      $thumb = $r['url_thumb'] ?: ($r['poster_url'] ?: ($r['url_medium'] ?: $r['url_full']));
       $items[] = [
         'blog_id' => (int)$r['blog_id'],
         'attachment_id' => (int)$r['attachment_id'],
@@ -130,74 +193,122 @@ class TBF_NMI_AJAX {
       $sites = get_sites(['number' => 2000]);
       foreach ($sites as $s) {
         $bid = (int)$s->blog_id;
-        if ($originBlogId && $originBlogId !== $bid) continue;
+        if ($originBlogId > 0 && $bid !== $originBlogId) continue;
 
         switch_to_blog($bid);
 
-        $q = new WP_Query([
+        $args = [
           'post_type' => 'attachment',
           'post_status' => 'inherit',
-          'posts_per_page' => 200,
-          's' => $search,
+          'posts_per_page' => $per,
+          'paged' => $page,
+          's' => $search ?: '',
           'orderby' => 'date',
           'order' => 'DESC',
-        ]);
+        ];
+
+        if ($mime) {
+          if ($mime === 'image') $args['post_mime_type'] = 'image';
+          elseif ($mime === 'video') $args['post_mime_type'] = 'video';
+          elseif ($mime === 'audio') $args['post_mime_type'] = 'audio';
+          elseif ($mime === 'application') $args['post_mime_type'] = 'application';
+        }
+
+        $q = new WP_Query($args);
 
         foreach ($q->posts as $p) {
-          $id = (int)$p->ID;
-          $pm = (string)get_post_mime_type($id);
-          if ($mime && strpos($pm, $mime . '/') !== 0) continue;
+          $aid = (int)$p->ID;
+          $url = wp_get_attachment_url($aid);
+          if (!$url) continue;
 
-          $url = wp_get_attachment_url($id);
-          $thumb = wp_get_attachment_image_src($id, 'thumbnail');
+          $mimeType = (string)get_post_mime_type($aid);
+          $mediaType = 'application';
+          if (strpos($mimeType, 'image/') === 0) $mediaType = 'image';
+          elseif (strpos($mimeType, 'video/') === 0) $mediaType = 'video';
+          elseif (strpos($mimeType, 'audio/') === 0) $mediaType = 'audio';
+
+          $thumb = '';
+          if ($mediaType === 'image') {
+            $t = wp_get_attachment_image_src($aid, 'thumbnail');
+            $thumb = is_array($t) ? (string)$t[0] : '';
+          }
+          if (!$thumb) $thumb = $url;
+
           $items[] = [
             'blog_id' => $bid,
-            'attachment_id' => $id,
-            'title' => get_the_title($id),
-            'url' => $url,
-            'thumb' => is_array($thumb) ? $thumb[0] : $url,
-            'mime' => $pm,
+            'attachment_id' => $aid,
+            'title' => (string)get_the_title($aid),
+            'url' => (string)$url,
+            'thumb' => (string)$thumb,
+            'mime' => $mimeType,
+            'media_type' => $mediaType,
           ];
         }
 
         restore_current_blog();
       }
-    } else {
-      $q = new WP_Query([
-        'post_type' => 'attachment',
-        'post_status' => 'inherit',
-        'posts_per_page' => 500,
-        's' => $search,
-        'orderby' => 'date',
-        'order' => 'DESC',
-      ]);
 
-      foreach ($q->posts as $p) {
-        $id = (int)$p->ID;
-        $pm = (string)get_post_mime_type($id);
-        if ($mime && strpos($pm, $mime . '/') !== 0) continue;
-
-        $url = wp_get_attachment_url($id);
-        $thumb = wp_get_attachment_image_src($id, 'thumbnail');
-        $items[] = [
-          'blog_id' => get_current_blog_id(),
-          'attachment_id' => $id,
-          'title' => get_the_title($id),
-          'url' => $url,
-          'thumb' => is_array($thumb) ? $thumb[0] : $url,
-          'mime' => $pm,
-        ];
-      }
+      return [
+        'items' => $items,
+        'total' => count($items),
+        'max_pages' => 1,
+        'source' => 'fallback_scan',
+      ];
     }
 
-    $total = count($items);
-    $offset = ($page - 1) * $per;
-    $slice = array_slice($items, $offset, $per);
+    // non-multisite
+    $args = [
+      'post_type' => 'attachment',
+      'post_status' => 'inherit',
+      'posts_per_page' => $per,
+      'paged' => $page,
+      's' => $search ?: '',
+      'orderby' => 'date',
+      'order' => 'DESC',
+    ];
+
+    if ($mime) {
+      if ($mime === 'image') $args['post_mime_type'] = 'image';
+      elseif ($mime === 'video') $args['post_mime_type'] = 'video';
+      elseif ($mime === 'audio') $args['post_mime_type'] = 'audio';
+      elseif ($mime === 'application') $args['post_mime_type'] = 'application';
+    }
+
+    $q = new WP_Query($args);
+
+    foreach ($q->posts as $p) {
+      $aid = (int)$p->ID;
+      $url = wp_get_attachment_url($aid);
+      if (!$url) continue;
+
+      $mimeType = (string)get_post_mime_type($aid);
+      $mediaType = 'application';
+      if (strpos($mimeType, 'image/') === 0) $mediaType = 'image';
+      elseif (strpos($mimeType, 'video/') === 0) $mediaType = 'video';
+      elseif (strpos($mimeType, 'audio/') === 0) $mediaType = 'audio';
+
+      $thumb = '';
+      if ($mediaType === 'image') {
+        $t = wp_get_attachment_image_src($aid, 'thumbnail');
+        $thumb = is_array($t) ? (string)$t[0] : '';
+      }
+      if (!$thumb) $thumb = $url;
+
+      $items[] = [
+        'blog_id' => get_current_blog_id(),
+        'attachment_id' => $aid,
+        'title' => (string)get_the_title($aid),
+        'url' => (string)$url,
+        'thumb' => (string)$thumb,
+        'mime' => $mimeType,
+        'media_type' => $mediaType,
+      ];
+    }
 
     return [
-      'items' => $slice,
-      'total' => $total,
-      'max_pages' => (int)ceil($total / $per),
+      'items' => $items,
+      'total' => count($items),
+      'max_pages' => 1,
       'source' => 'fallback_scan',
     ];
   }
@@ -205,84 +316,112 @@ class TBF_NMI_AJAX {
   public static function sites() {
     self::verify();
 
+    if ( ! is_multisite() ) {
+      wp_send_json_success(['sites' => [
+        ['blog_id' => 1, 'name' => get_bloginfo('name')],
+      ]]);
+    }
+
     $out = [];
-    if ( is_multisite() ) {
-      $sites = get_sites(['number' => 5000]);
-      foreach ($sites as $s) {
-        $bid = (int)$s->blog_id;
-        $out[] = [
-          'blog_id' => $bid,
-          'name' => get_blog_option($bid, 'blogname'),
-        ];
-      }
-    } else {
+    $sites = get_sites(['number' => 2000]);
+    foreach ($sites as $s) {
+      $bid = (int)$s->blog_id;
+      $details = get_blog_details($bid);
       $out[] = [
-        'blog_id' => get_current_blog_id(),
-        'name' => get_bloginfo('name'),
+        'blog_id' => $bid,
+        'name' => $details ? $details->blogname : ('Site ' . $bid),
       ];
     }
 
-    wp_send_json_success($out);
+    wp_send_json_success(['sites' => $out]);
   }
 
+  /**
+   * Create a local proxy attachment for a media item from another blog in the network.
+   * No file copying, just store remote URL in proxy meta.
+   */
   public static function proxy() {
     self::verify();
 
     $originBlogId = (int)($_POST['origin_blog_id'] ?? 0);
     $originAttId  = (int)($_POST['origin_attachment_id'] ?? 0);
 
-    if ( ! $originBlogId || ! $originAttId ) {
-      wp_send_json_error(['message' => 'Invalid origin']);
+    if ( $originBlogId <= 0 || $originAttId <= 0 ) {
+      wp_send_json_error(['message' => 'Invalid origin'], 400);
+    }
+
+    if ( ! class_exists('TBF_NMI_Proxy') ) {
+      wp_send_json_error(['message' => 'Proxy class missing'], 500);
+    }
+
+    if ( ! is_multisite() ) {
+      wp_send_json_error(['message' => 'Not multisite'], 400);
     }
 
     switch_to_blog($originBlogId);
-    $url = wp_get_attachment_url($originAttId);
+    $url   = wp_get_attachment_url($originAttId);
     $title = get_the_title($originAttId);
-    $mime = get_post_mime_type($originAttId);
+    $mime  = (string) get_post_mime_type($originAttId);
     restore_current_blog();
 
     if ( ! $url ) {
-      wp_send_json_error(['message' => 'Could not get URL']);
+      wp_send_json_error(['message' => 'Could not get origin URL'], 404);
     }
 
     $localId = TBF_NMI_Proxy::create_proxy_attachment([
       'origin_blog_id' => $originBlogId,
       'origin_attachment_id' => $originAttId,
       'url' => $url,
-      'title' => $title,
-      'mime' => $mime,
+      'title' => (string)$title,
+      'mime' => $mime ?: 'application/octet-stream',
       'source' => 'network',
     ]);
 
     if ( is_wp_error($localId) ) {
-      wp_send_json_error(['message' => $localId->get_error_message()]);
+      wp_send_json_error(['message' => $localId->get_error_message()], 500);
     }
 
     wp_send_json_success(['local_attachment_id' => (int)$localId]);
   }
 
+  /**
+   * Create a local proxy attachment for an external URL (including vkmedia).
+   * No file copying.
+   */
   public static function proxy_url() {
     self::verify();
 
-    $url = esc_url_raw((string)($_POST['url'] ?? ''));
-    $title = sanitize_text_field((string)($_POST['title'] ?? 'Media'));
-    $mime  = sanitize_text_field((string)($_POST['mime'] ?? 'image/*'));
+    if ( ! class_exists('TBF_NMI_Proxy') ) {
+      wp_send_json_error(['message' => 'Proxy class missing'], 500);
+    }
 
-    if ( ! $url ) {
-      wp_send_json_error(['message' => 'Missing URL']);
+    $source = sanitize_key((string)($_POST['source'] ?? 'external'));
+    $url    = esc_url_raw((string)($_POST['url'] ?? ''));
+    $title  = sanitize_text_field((string)($_POST['title'] ?? 'Media'));
+    $mime   = sanitize_text_field((string)($_POST['mime'] ?? 'application/octet-stream'));
+
+    if ( $url === '' ) {
+      wp_send_json_error(['message' => 'Missing URL'], 400);
+    }
+
+    $extra = [];
+    if ($source === 'vkmedia') {
+      $extra['vkmedia_id'] = (int)($_POST['vkmedia_id'] ?? 0);
+      $extra['user_id']    = (int)($_POST['user_id'] ?? 0);
     }
 
     $localId = TBF_NMI_Proxy::create_proxy_attachment([
       'origin_blog_id' => 0,
       'origin_attachment_id' => 0,
       'url' => $url,
-      'title' => $title,
-      'mime' => $mime,
-      'source' => 'external',
+      'title' => $title ?: 'Media',
+      'mime' => $mime ?: 'application/octet-stream',
+      'source' => $source ?: 'external',
+      'extra_meta' => $extra,
     ]);
 
     if ( is_wp_error($localId) ) {
-      wp_send_json_error(['message' => $localId->get_error_message()]);
+      wp_send_json_error(['message' => $localId->get_error_message()], 500);
     }
 
     wp_send_json_success(['local_attachment_id' => (int)$localId]);

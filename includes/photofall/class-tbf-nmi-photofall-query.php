@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbf-nmi-photofall-query.php
- * Version: 4.0.3
+ * Version: 4.0.0
  *
  * Query helper reading from tbf_nmi_index (fast).
  */
@@ -74,25 +74,12 @@ class TBF_NMI_PhotoFall_Query {
   public function get_item($blogId, $attId) {
     global $wpdb;
     $blogId = (int)$blogId; $attId=(int)$attId;
-    if ($attId<=0) return null;
+    if ($blogId<=0 || $attId<=0) return null;
 
-    // 1) Strict match first (old behavior).
-    $row = null;
-    if ($blogId > 0) {
-      $row = $wpdb->get_row(
-        $wpdb->prepare("SELECT * FROM {$this->table} WHERE blog_id=%d AND attachment_id=%d LIMIT 1", $blogId, $attId),
-        ARRAY_A
-      );
-    }
-
-    // 2) Fallback: match by attachment_id only (fixes broken detail URLs when blog_id differs).
-    if (!$row) {
-      $row = $wpdb->get_row(
-        $wpdb->prepare("SELECT * FROM {$this->table} WHERE attachment_id=%d ORDER BY created_gmt DESC LIMIT 1", $attId),
-        ARRAY_A
-      );
-    }
-
+    $row = $wpdb->get_row(
+      $wpdb->prepare("SELECT * FROM {$this->table} WHERE blog_id=%d AND attachment_id=%d", $blogId, $attId),
+      ARRAY_A
+    );
     if (!$row) return null;
     return $this->row_to_item($row, true);
   }
@@ -101,27 +88,15 @@ class TBF_NMI_PhotoFall_Query {
     global $wpdb;
     $blogId = (int)$blogId; $attId=(int)$attId;
     $limit = max(4, min(48, (int)$limit));
-    if ($attId <= 0) return [];
 
-    // Try strict first, then fallback
-    $row = null;
-    if ($blogId > 0) {
-      $row = $wpdb->get_row(
-        $wpdb->prepare("SELECT media_type, year, month, tag_slug FROM {$this->table} WHERE blog_id=%d AND attachment_id=%d LIMIT 1", $blogId, $attId),
-        ARRAY_A
-      );
-    }
-    if (!$row) {
-      $row = $wpdb->get_row(
-        $wpdb->prepare("SELECT media_type, year, month, tag_slug FROM {$this->table} WHERE attachment_id=%d ORDER BY created_gmt DESC LIMIT 1", $attId),
-        ARRAY_A
-      );
-    }
-
+    $row = $wpdb->get_row(
+      $wpdb->prepare("SELECT media_type, year, month, tag_slug FROM {$this->table} WHERE blog_id=%d AND attachment_id=%d", $blogId, $attId),
+      ARRAY_A
+    );
     if (!$row) return [];
 
-    $where = "media_type=%s AND attachment_id<>%d";
-    $params = [$row['media_type'], $attId];
+    $where = "media_type=%s AND NOT (blog_id=%d AND attachment_id=%d)";
+    $params = [$row['media_type'], $blogId, $attId];
 
     // Prefer same tag if available
     if (!empty($row['tag_slug'])) {
@@ -150,20 +125,11 @@ class TBF_NMI_PhotoFall_Query {
   }
 
   private function row_to_item(array $r, $includeSources=false) {
-    $blogId = (int)($r['blog_id'] ?? 0);
-    $attId = (int)($r['attachment_id'] ?? 0);
+    $blogId = (int)$r['blog_id'];
+    $attId = (int)$r['attachment_id'];
     $mediaType = (string)($r['media_type'] ?? 'image');
 
-    // Always provide a working thumbnail (prevents broken placeholders).
-    $urlFull  = (string)($r['url_full'] ?? '');
-    $urlThumb = (string)($r['url_thumb'] ?? '');
-    if ($urlThumb === '' && $urlFull !== '') {
-      $urlThumb = $urlFull;
-    }
-
-    // Keep URL structure the same; detail lookup is now resilient if blog_id is off.
-    $base = defined('TBF_NMI_PHOTOFALL_BASE') ? (string)TBF_NMI_PHOTOFALL_BASE : 'photo';
-    $href = home_url('/' . trim($base,'/') . '/' . ($mediaType === 'video' ? 'v' : 'i') . "/{$blogId}/{$attId}/");
+    $href = home_url('/' . trim(TBF_NMI_PHOTOFALL_BASE,'/') . '/' . ($mediaType === 'video' ? 'v' : 'i') . "/{$blogId}/{$attId}/");
 
     $item = [
       'blog_id' => $blogId,
@@ -174,8 +140,8 @@ class TBF_NMI_PhotoFall_Query {
       'title' => (string)($r['title'] ?? ''),
       'alt' => (string)($r['alt'] ?? ''),
       'caption' => (string)($r['caption'] ?? ''),
-      'url_full' => $urlFull,
-      'thumb_url' => $urlThumb,
+      'url_full' => (string)($r['url_full'] ?? ''),
+      'thumb_url' => (string)($r['url_thumb'] ?? ''),
       'poster_url' => (string)($r['poster_url'] ?? ''),
       'width' => (int)($r['width'] ?? 0),
       'height' => (int)($r['height'] ?? 0),
@@ -186,13 +152,7 @@ class TBF_NMI_PhotoFall_Query {
     if ($includeSources) {
       $item['content_url'] = (string)($r['content_url'] ?? '');
       $item['embed_url'] = (string)($r['embed_url'] ?? '');
-      // Helpful for debugging without breaking anything:
-      $item['_lookup'] = [
-        'blog_id_used' => $blogId,
-        'attachment_id_used' => $attId,
-      ];
     }
-
     return $item;
   }
 }

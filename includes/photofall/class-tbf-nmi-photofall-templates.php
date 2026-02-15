@@ -1,124 +1,94 @@
 <?php
 /**
  * File: includes/photofall/class-tbf-nmi-photofall-templates.php
- * Version: 4.0.10
+ * Version: 4.0.0
  *
- * Front-end template loader for Photofall.
+ * Template loader + public assets for Photofall.
  */
 if ( ! defined('ABSPATH') ) exit;
 
 class TBF_NMI_PhotoFall_Templates {
 
   public static function init() {
-    // Render page
-    add_filter('template_include', [__CLASS__, 'template_include'], 99);
-
-    // Assets
-    add_action('wp_enqueue_scripts', [__CLASS__, 'enqueue_public_assets'], 20);
+    add_action('template_redirect', [__CLASS__, 'maybe_render'], 0);
+    add_action('wp_enqueue_scripts', [__CLASS__, 'assets'], 20);
   }
 
-  /**
-   * Detect whether the current request is Photofall.
-   * We rely on the router adding a query var OR matching the path.
-   */
-  private static function is_photofall_request() {
-    // If router set a query var (preferred)
-    $qv = get_query_var('tbf_photofall', null);
-    if ( $qv !== null ) return true;
-
-    // Fallback: path match (handles cases where router rewrites got wiped)
-    $path = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '';
-    $path = strtok($path, '?'); // strip query
-    $base = '/' . trim(TBF_NMI_PHOTOFALL_BASE, '/') . '/';
-
-    // Also allow /1drop/photo/ specifically
-    return (strpos($path, $base) !== false);
+  public static function is_photofall_request() {
+    $kind = sanitize_key((string)get_query_var('tbf_pf_kind'));
+    return in_array($kind, ['archive','image','video'], true);
   }
 
-  /**
-   * Enqueue public JS/CSS ONLY on photofall requests.
-   */
-  public static function enqueue_public_assets() {
+  public static function assets() {
     if ( ! self::is_photofall_request() ) return;
 
-    // Use your real existing file names
-    $css = TBF_NMI_DIR . 'assets/css/photofall-public.css';
-    if ( file_exists($css) ) {
-      wp_enqueue_style('tbf-photofall-public', TBF_NMI_URL . 'assets/css/photofall-public.css', [], TBF_NMI_VER);
-    }
-
-    $js = TBF_NMI_DIR . 'assets/js/photofall-public.js';
-    if ( file_exists($js) ) {
-      wp_enqueue_script('tbf-photofall-public', TBF_NMI_URL . 'assets/js/photofall-public.js', [], TBF_NMI_VER, true);
-    }
-
-    // Config for JS
     $settings = class_exists('TBF_NMI_Plugin') ? TBF_NMI_Plugin::instance()->get_settings() : [];
-    $pageSize = ! empty($settings['photofall_page_size']) ? (int)$settings['photofall_page_size'] : 24;
+    if ( empty($settings['photofall_enabled']) ) return;
 
-    wp_add_inline_script('tbf-photofall-public', 'window.TBF_PHOTOFALL = window.TBF_PHOTOFALL || {};', 'before');
+    wp_enqueue_style('tbf-photofall-public', TBF_NMI_URL . 'assets/css/photofall-public.css', [], TBF_NMI_VER);
+    wp_enqueue_script('tbf-photofall-public', TBF_NMI_URL . 'assets/js/photofall-public.js', ['jquery'], TBF_NMI_VER, true);
 
-    // IMPORTANT: apiBase must point to /1drop in your setup
-    wp_add_inline_script('tbf-photofall-public', 'window.TBF_PHOTOFALL.apiBase = ' . wp_json_encode( home_url('/1drop/wp-json/tbf-photofall/v1') ) . ';', 'before');
-    wp_add_inline_script('tbf-photofall-public', 'window.TBF_PHOTOFALL.pageSize = ' . wp_json_encode( max(6, min(200, $pageSize)) ) . ';', 'before');
-    wp_add_inline_script('tbf-photofall-public', 'window.TBF_PHOTOFALL.placeholder = ' . wp_json_encode( home_url('/wp-content/uploads/2026/02/tbf-nmi-placeholder.png') ) . ';', 'before');
+    $route  = sanitize_key((string)get_query_var('tbf_pf_route'));
+    $page   = max(1, (int)get_query_var('tbf_pf_page'));
+    $blogId = (int)get_query_var('tbf_pf_blog_id');
+    $year   = (int)get_query_var('tbf_pf_year');
+    $month  = (int)get_query_var('tbf_pf_month');
+    $tag    = sanitize_title((string)get_query_var('tbf_pf_tag'));
+
+    wp_localize_script('tbf-photofall-public', 'TBF_PHOTOFALL', [
+      'rest' => rest_url('tbf-photofall/v1'),
+      'nonce' => wp_create_nonce('wp_rest'),
+      'route' => $route ?: 'root',
+      'page' => $page,
+      'blogId' => $blogId,
+      'year' => $year,
+      'month' => $month,
+      'tag' => $tag,
+      'pageSize' => isset($settings['photofall_page_size']) ? (int)$settings['photofall_page_size'] : 96,
+    ]);
   }
 
-  /**
-   * Provide the actual template.
-   * If template file is missing, render a built-in fallback instead of erroring.
-   */
-  public static function template_include($template) {
-    if ( ! self::is_photofall_request() ) return $template;
+  public static function maybe_render() {
+    if ( ! self::is_photofall_request() ) return;
 
-    // Try expected template locations (some installs move templates)
-    $candidates = [
-      TBF_NMI_DIR . 'templates/photofall-grid.php',
-      TBF_NMI_DIR . 'template/photofall-grid.php',
-      TBF_NMI_DIR . 'includes/photofall/templates/photofall-grid.php',
-    ];
+    $settings = class_exists('TBF_NMI_Plugin') ? TBF_NMI_Plugin::instance()->get_settings() : [];
+    if ( empty($settings['photofall_enabled']) ) self::send_404();
 
-    foreach ($candidates as $p) {
-      if ( file_exists($p) ) {
-        return $p;
-      }
+    $public = ! empty($settings['photofall_public']);
+    if ( ! $public && ! is_user_logged_in() ) {
+      auth_redirect();
+      exit;
     }
 
-    // Fallback: render a minimal template directly
+    $kind = sanitize_key((string)get_query_var('tbf_pf_kind'));
+
     status_header(200);
     nocache_headers();
 
-    add_filter('the_content', function($content){
-      ob_start();
-      ?>
-      <div class="tbf-photofall-wrap">
-        <div class="tbf-photofall-topbar">
-          <h1 class="tbf-photofall-title">Photofall</h1>
-          <input type="search" class="tbf-photofall-search" placeholder="Search photos..." data-photofall-search />
-        </div>
+    // Use your theme header/footer for consistent branding
+    get_header();
 
-        <div class="tbf-photofall-grid" data-photofall-grid></div>
+    $tpl = '';
+    if ( $kind === 'archive' ) $tpl = TBF_NMI_DIR . 'templates/photofall-archive.php';
+    if ( $kind === 'image' )   $tpl = TBF_NMI_DIR . 'templates/photofall-image.php';
+    if ( $kind === 'video' )   $tpl = TBF_NMI_DIR . 'templates/photofall-video.php';
 
-        <div class="tbf-photofall-modal" data-photofall-modal style="display:none;">
-          <div class="tbf-photofall-modal-inner">
-            <button type="button" class="tbf-photofall-close" data-photofall-modal-close aria-label="Close">×</button>
+    if ( $tpl && file_exists($tpl) ) {
+      include $tpl;
+    } else {
+      echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap"><p>Template missing.</p></div></div>';
+    }
 
-            <div class="tbf-photofall-modal-media">
-              <img data-photofall-modal-img alt="" style="display:none;max-width:100%;height:auto;" />
-              <video data-photofall-modal-video style="display:none;max-width:100%;" controls></video>
-            </div>
+    get_footer();
+    exit;
+  }
 
-            <div class="tbf-photofall-modal-meta">
-              <div class="tbf-photofall-modal-title" data-photofall-modal-title></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <?php
-      return ob_get_clean();
-    });
-
-    // Use the active theme’s page template, but content will be replaced by filter above
-    return $template;
+  private static function send_404() {
+    global $wp_query;
+    $wp_query->set_404();
+    status_header(404);
+    nocache_headers();
+    echo 'Not found';
+    exit;
   }
 }

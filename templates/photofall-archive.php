@@ -1,7 +1,7 @@
 <?php
 /**
  * File: templates/photofall-archive.php
- * Version: 4.0.0
+ * Version: 4.1.3
  *
  * Photofall Archive (HTML-first for SEO)
  */
@@ -41,6 +41,12 @@ if ($route === 'year')  $title = (string)$year;
 if ($route === 'month') $title = sprintf('%04d-%02d', $year, $month);
 if ($route === 'tag')   $title = 'Tag: ' . $tag;
 
+$placeholderUrl = '';
+if (class_exists('TBF_NMI_Placeholder')) {
+  $pid = (int) TBF_NMI_Placeholder::get_id();
+  if ($pid) $placeholderUrl = (string) wp_get_attachment_url($pid);
+}
+
 echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap">';
 
 echo '<header class="tbf-photofall__header">';
@@ -60,13 +66,20 @@ echo '<main class="tbf-photofall__main">';
 echo '<div class="tbf-photofall__grid">';
 
 foreach ($items as $it) {
-  $href  = esc_url($it['href']);
-  $thumb = esc_url($it['thumb_url'] ?: $it['poster_url']);
-  $tt = esc_html($it['title']);
+  $href = esc_url($it['href']);
+
+  $thumbRaw = (string)($it['thumb_url'] ?? '');
+  if ($thumbRaw === '') $thumbRaw = (string)($it['poster_url'] ?? '');
+  if ($thumbRaw === '') $thumbRaw = (string)($it['url_full'] ?? '');
+  if ($thumbRaw === '' && $placeholderUrl) $thumbRaw = $placeholderUrl;
+
+  $thumb = esc_url($thumbRaw);
+  $tt    = esc_html((string)($it['title'] ?? ''));
+  $alt   = esc_attr((string)($it['alt'] ?? ''));
 
   echo '<article class="tbf-pf-card">';
   echo '<a class="tbf-pf-card__link" href="' . $href . '">';
-  echo '<img class="tbf-pf-card__img" src="' . $thumb . '" alt="' . esc_attr($it['alt']) . '" loading="lazy" />';
+  echo '<img class="tbf-pf-card__img" src="' . $thumb . '" alt="' . $alt . '" loading="lazy" />';
   if (($it['media_type'] ?? '') === 'video') {
     echo '<span class="tbf-pf-card__badge">▶</span>';
   }

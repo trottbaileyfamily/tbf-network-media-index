@@ -1,11 +1,11 @@
 <?php
 /**
  * File: tbf-network-media-index.php
-  *
+ *
  * Plugin Name:       TBF Network Media Index
  * Plugin URI:        https://trottbaileyfamily.com/tbf-network-media-index
  * Description:       Browse/insert media from any site in a multisite network without copying files + public Photofall at /photo/ with sitemaps for indexing.
- * Version:           4.1.0
+ * Version:           4.2.4
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Trott Bailey Family, Kimroy Bailey, David Luis
@@ -17,8 +17,7 @@
  */
 
 if ( ! defined('ABSPATH') ) exit;
-
-define('TBF_NMI_VER', '4.1.0');
+define('TBF_NMI_VER', '4.2.4');
 define('TBF_NMI_DIR', plugin_dir_path(__FILE__));
 define('TBF_NMI_URL', plugin_dir_url(__FILE__));
 
@@ -50,6 +49,7 @@ $required = [
   'includes/class-tbf-nmi-proxy.php',
   'includes/class-tbf-nmi-placeholder.php',
   'includes/class-tbf-nmi-visibility.php',
+  'includes/class-tbf-nmi-featured-media.php'
 ];
 
 foreach ( $required as $rel ) {
@@ -68,6 +68,7 @@ require_once TBF_NMI_DIR . 'includes/class-tbf-nmi-ajax.php';
 require_once TBF_NMI_DIR . 'includes/class-tbf-nmi-proxy.php';
 require_once TBF_NMI_DIR . 'includes/class-tbf-nmi-placeholder.php';
 require_once TBF_NMI_DIR . 'includes/class-tbf-nmi-visibility.php';
+require_once TBF_NMI_DIR . 'includes/class-tbf-nmi-featured-media.php';
 
 /**
  * Load v4 Photofall + Indexer + SEO + REST (if present).
@@ -240,67 +241,21 @@ class TBF_Network_Media_Index {
 /**
  * Activation: ensure tables + rewrite rules exist.
  */
-/**
- * Activation: ensure tables + rewrite rules exist.
- */
 function tbf_nmi_activate() {
-  // Ensure index table exists
   if ( class_exists('TBF_NMI_Indexer') ) {
     $idx = new TBF_NMI_Indexer();
     if ( ! $idx->has_table() ) $idx->create_table();
   }
 
-  // Photofall rewrite rules MUST be registered/flushed on the target blog (/1drop = blog_id 2)
-  $target_blog_id = 2;
-  if ( class_exists('TBF_NMI_PhotoFall') ) {
-  // Photofall should only run on /1drop (blog_id 2)
-  if ( ! is_multisite() || (int) get_current_blog_id() === (int) TBF_NMI_PhotoFall::target_blog_id() ) {
-    TBF_NMI_PhotoFall::init();
-	}
-	}
-
-
-  if ( is_multisite() ) {
-    $current = get_current_blog_id();
-    switch_to_blog($target_blog_id);
-
-    if ( class_exists('TBF_NMI_PhotoFall_Router') ) {
-      if ( method_exists('TBF_NMI_PhotoFall_Router', 'register') ) {
-        TBF_NMI_PhotoFall_Router::register();
-      } elseif ( method_exists('TBF_NMI_PhotoFall_Router', 'init_rewrites') ) {
-        TBF_NMI_PhotoFall_Router::init_rewrites();
-      }
-    }
-
-    if ( class_exists('TBF_NMI_Sitemaps') && method_exists('TBF_NMI_Sitemaps', 'rewrite_rules') ) {
-      TBF_NMI_Sitemaps::rewrite_rules();
-    }
-
-    flush_rewrite_rules();
-    restore_current_blog();
-
-    // Also flush current blog (safe)
-    switch_to_blog($current);
-    flush_rewrite_rules();
-    restore_current_blog();
-
-  } else {
-    if ( class_exists('TBF_NMI_PhotoFall_Router') ) {
-      if ( method_exists('TBF_NMI_PhotoFall_Router', 'register') ) {
-        TBF_NMI_PhotoFall_Router::register();
-      } elseif ( method_exists('TBF_NMI_PhotoFall_Router', 'init_rewrites') ) {
-        TBF_NMI_PhotoFall_Router::init_rewrites();
-      }
-    }
-
-    if ( class_exists('TBF_NMI_Sitemaps') && method_exists('TBF_NMI_Sitemaps', 'rewrite_rules') ) {
-      TBF_NMI_Sitemaps::rewrite_rules();
-    }
-
-    flush_rewrite_rules();
+  if ( class_exists('TBF_NMI_PhotoFall_Router') ) {
+    TBF_NMI_PhotoFall_Router::register();
   }
-}
+  if ( class_exists('TBF_NMI_Sitemaps') ) {
+    TBF_NMI_Sitemaps::rewrite_rules();
+  }
 
+  flush_rewrite_rules();
+}
 register_activation_hook(__FILE__, 'tbf_nmi_activate');
 
 function tbf_nmi_deactivate() {

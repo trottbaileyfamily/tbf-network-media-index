@@ -1,249 +1,209 @@
-/**
- * File: assets/js/photofall.js
- * Version: 4.0.3
+/*!
+ * File: assets/js/photofall-public.js
+ * Version: 4.1.3
  *
- * Photofall front-end: infinite scroll + hash routing + resilient thumbnails + item detail loader.
+ * Photofall public JS enhancement:
+ * - Infinite scroll
+ * - Hash-based search (#q=...)
+ *
+ * v4.0.1 fix:
+ * - Do NOT emit query params with "undefined"
+ * - Only include params that have real values
  */
-/* global window, document, fetch */
-(function () {
-  'use strict';
 
-  const CFG = window.TBF_PHOTOFALL || {};
-  const apiBase = CFG.apiBase || '/1drop/wp-json/tbf-photofall/v1';
-  const placeholder = CFG.placeholder || (window.location.origin + '/wp-content/uploads/2026/02/tbf-nmi-placeholder.png');
-  const pageSize = Math.max(6, Math.min(200, parseInt(CFG.pageSize || 24, 10)));
+/* global jQuery, TBF_PHOTOFALL */
+(function ($) {
+  if (!window.TBF_PHOTOFALL) return;
 
-  const els = {
-    grid: document.querySelector('[data-photofall-grid]'),
-    modal: document.querySelector('[data-photofall-modal]'),
-    modalImg: document.querySelector('[data-photofall-modal-img]'),
-    modalVideo: document.querySelector('[data-photofall-modal-video]'),
-    modalTitle: document.querySelector('[data-photofall-modal-title]'),
-    modalClose: document.querySelector('[data-photofall-modal-close]'),
-    prev: document.querySelector('[data-photofall-prev]'),
-    next: document.querySelector('[data-photofall-next]'),
-    search: document.querySelector('[data-photofall-search]'),
-  };
-
-  if (!els.grid) return;
-
-  let state = {
-    route: 'root',
-    page: 1,
+  const state = {
     loading: false,
+    nextPage: (TBF_PHOTOFALL.page || 1) + 1,
     hasMore: true,
-    q: '',
+    route: (TBF_PHOTOFALL.route || 'root').toString(),
+    blogId: parseInt(TBF_PHOTOFALL.blogId || 0, 10) || 0,
+    year: parseInt(TBF_PHOTOFALL.year || 0, 10) || 0,
+    month: parseInt(TBF_PHOTOFALL.month || 0, 10) || 0,
+    tag: (TBF_PHOTOFALL.tag || '').toString(),
+    pageSize: parseInt(TBF_PHOTOFALL.pageSize || 96, 10) || 96,
+    q: ''
   };
 
-  function buildListUrl() {
-    const u = new URL(apiBase + '/list', window.location.origin);
-    u.searchParams.set('route', state.route);
-    u.searchParams.set('page', String(state.page));
-    u.searchParams.set('page_size', String(pageSize));
-    if (state.q) u.searchParams.set('q', state.q);
-    return u.toString();
-  }
-
-  function safeImgUrl(item) {
-    // Key fix: use thumb_url if present, else full, else placeholder.
-    return (item && (item.thumb_url || item.url_full)) || placeholder;
-  }
-
-  function makeCard(item) {
-    const a = document.createElement('a');
-    a.className = 'tbf-photofall-card';
-    a.href = item.href || '#';
-    a.dataset.blogId = item.blog_id || '';
-    a.dataset.attachmentId = item.attachment_id || '';
-    a.dataset.itemId = item.id || ''; // optional if your API later returns a network id
-    a.addEventListener('click', function (e) {
-      e.preventDefault();
-      openFromItem(item);
+  function parseHash() {
+    const h = (window.location.hash || '').replace(/^#/, '').trim();
+    const out = {};
+    if (!h) return out;
+    h.split('&').forEach((pair) => {
+      const [k, v] = pair.split('=');
+      if (!k) return;
+      out[decodeURIComponent(k)] = decodeURIComponent(v || '');
     });
-
-    const img = document.createElement('img');
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.referrerPolicy = 'no-referrer-when-downgrade';
-    img.alt = (item && (item.alt || item.title)) || '';
-    img.src = safeImgUrl(item);
-    img.onerror = function () {
-      // If thumb fails (common), try url_full, else placeholder.
-      if (item && item.url_full && img.src !== item.url_full) {
-        img.src = item.url_full;
-      } else {
-        img.src = placeholder;
-      }
-    };
-
-    a.appendChild(img);
-    return a;
+    return out;
   }
 
-  async function fetchJson(url) {
-    const r = await fetch(url, { credentials: 'same-origin' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
+  function setHashParam(key, val) {
+    const cur = parseHash();
+    if (!val) delete cur[key];
+    else cur[key] = val;
+
+    const parts = Object.keys(cur).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(cur[k]));
+    const next = parts.length ? ('#' + parts.join('&')) : '';
+    if (window.location.hash !== next) window.location.hash = next;
   }
 
-  async function loadNextPage() {
+  function buildQuery(params) {
+    // Remove null/undefined/empty-string keys so URLSearchParams never serializes "undefined"
+    const clean = {};
+    Object.keys(params).forEach((k) => {
+      const v = params[k];
+      if (v === undefined || v === null) return;
+      if (typeof v === 'string' && v.trim() === '') return;
+      clean[k] = v;
+    });
+    return new URLSearchParams(clean).toString();
+  }
+
+  function restUrl(path, params) {
+    const base = (TBF_PHOTOFALL.rest || '').replace(/\/$/, '');
+    const qs = buildQuery(params || {});
+    return base + path + (qs ? ('?' + qs) : '');
+  }
+
+  function getGrid() {
+    return document.querySelector('.tbf-photofall__grid');
+  }
+
+  function getSentinel() {
+    return document.querySelector('.tbf-photofall__sentinel');
+  }
+
+  function setLoading(on) {
+    state.loading = !!on;
+    const el = document.querySelector('.tbf-photofall__footer');
+    if (el) el.textContent = on ? 'Loading more…' : '';
+  }
+
+  function addFooterIfMissing() {
+    if (document.querySelector('.tbf-photofall__footer')) return;
+    const main = document.querySelector('.tbf-photofall__main');
+    if (!main) return;
+    const div = document.createElement('div');
+    div.className = 'tbf-photofall__footer';
+    main.appendChild(div);
+  }
+
+  function escapeHtml(s) {
+    return (s || '').toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  function cardHtml(it) {
+    const href = it.href;
+    const thumb = it.thumb_url || it.poster_url || it.url_full || '';
+    const title = it.title || '';
+    const isVideo = (it.media_type === 'video');
+
+    return `
+      <article class="tbf-pf-card">
+        <a class="tbf-pf-card__link" href="${escapeAttr(href)}">
+          <img class="tbf-pf-card__img" src="${escapeAttr(thumb)}" alt="${escapeAttr(it.alt || '')}" loading="lazy" />
+          ${isVideo ? '<span class="tbf-pf-card__badge">▶</span>' : ''}
+        </a>
+        <h2 class="tbf-pf-card__title"><a href="${escapeAttr(href)}">${escapeHtml(title)}</a></h2>
+      </article>
+    `;
+  }
+
+  async function fetchNextPage() {
     if (state.loading || !state.hasMore) return;
-    state.loading = true;
+    setLoading(true);
+
+    const url = restUrl('/list', {
+      route: state.route,
+      page: state.nextPage,
+      page_size: state.pageSize,
+      blog_id: state.blogId > 0 ? state.blogId : undefined,
+      year: state.year > 0 ? state.year : undefined,
+      month: state.month > 0 ? state.month : undefined,
+      tag: state.tag ? state.tag : undefined,
+      q: state.q ? state.q : undefined
+    });
 
     try {
-      const data = await fetchJson(buildListUrl());
-      const items = Array.isArray(data.items) ? data.items : [];
+      const res = await fetch(url, {
+        headers: { 'X-WP-Nonce': TBF_PHOTOFALL.nonce || '' }
+      });
 
-      items.forEach((it) => els.grid.appendChild(makeCard(it)));
+      const json = await res.json();
+      if (!json || !json.items) {
+        state.hasMore = false;
+        return;
+      }
 
-      state.hasMore = !!data.has_more;
-      state.page += 1;
-    } catch (err) {
-      // stop thrashing on error
-      state.hasMore = false;
-      // optional: console for debugging
-      // console.error('[Photofall] list error', err);
-    } finally {
-      state.loading = false;
-    }
-  }
+      const items = json.items || [];
+      state.hasMore = !!json.has_more;
+      state.nextPage = (json.page || state.nextPage) + 1;
 
-  function showModal() {
-    if (!els.modal) return;
-    els.modal.style.display = 'block';
-    document.documentElement.classList.add('tbf-photofall-modal-open');
-  }
-
-  function hideModal() {
-    if (!els.modal) return;
-    els.modal.style.display = 'none';
-    document.documentElement.classList.remove('tbf-photofall-modal-open');
-    if (els.modalVideo) {
-      els.modalVideo.pause?.();
-      els.modalVideo.removeAttribute('src');
-      els.modalVideo.load?.();
-    }
-    if (els.modalImg) {
-      els.modalImg.removeAttribute('src');
-    }
-    // Clear hash without jumping
-    if (window.location.hash.startsWith('#i=')) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  }
-
-  function setHashForItem(item) {
-    // hash format: #i=blogId:attId OR #i=id
-    if (item && item.id) {
-      window.location.hash = '#i=' + encodeURIComponent(String(item.id));
-      return;
-    }
-    const bid = item && item.blog_id ? String(item.blog_id) : '';
-    const aid = item && item.attachment_id ? String(item.attachment_id) : '';
-    window.location.hash = '#i=' + encodeURIComponent(bid + ':' + aid);
-  }
-
-  async function loadItemDetailByHash() {
-    const hash = window.location.hash || '';
-    if (!hash.startsWith('#i=')) return;
-
-    const raw = decodeURIComponent(hash.slice(3)).trim();
-    let url;
-
-    if (/^\d+$/.test(raw)) {
-      // network id
-      const u = new URL(apiBase + '/item', window.location.origin);
-      u.searchParams.set('id', raw);
-      url = u.toString();
-    } else {
-      // blog:att
-      const parts = raw.split(':');
-      const bid = parts[0] || '';
-      const aid = parts[1] || '';
-      const u = new URL(apiBase + '/item', window.location.origin);
-      u.searchParams.set('blog_id', bid);
-      u.searchParams.set('attachment_id', aid);
-      url = u.toString();
-    }
-
-    try {
-      const item = await fetchJson(url);
-      openFromItem(item, { updateHash: false });
+      if (items.length) {
+        const grid = getGrid();
+        if (grid) {
+          const frag = document.createElement('div');
+          frag.innerHTML = items.map(cardHtml).join('');
+          while (frag.firstChild) grid.appendChild(frag.firstChild);
+        }
+      }
     } catch (e) {
-      // If item doesn't resolve, close modal & clean hash
-      hideModal();
+      state.hasMore = false;
+    } finally {
+      setLoading(false);
     }
   }
 
-  function openFromItem(item, opts) {
-    opts = opts || {};
-    if (!item) return;
+  function setupInfiniteScroll() {
+    const sentinel = getSentinel();
+    if (!sentinel) return;
 
-    // Title
-    if (els.modalTitle) els.modalTitle.textContent = item.title || '';
+    addFooterIfMissing();
 
-    // Render media
-    const isVideo = item.media_type === 'video' || (item.mime || '').startsWith('video/');
-    if (isVideo) {
-      if (els.modalImg) els.modalImg.style.display = 'none';
-      if (els.modalVideo) {
-        els.modalVideo.style.display = 'block';
-        els.modalVideo.controls = true;
-        els.modalVideo.src = item.url_full || '';
-      }
-    } else {
-      if (els.modalVideo) els.modalVideo.style.display = 'none';
-      if (els.modalImg) {
-        els.modalImg.style.display = 'block';
-        els.modalImg.alt = item.alt || item.title || '';
-        els.modalImg.src = item.url_full || safeImgUrl(item);
-        els.modalImg.onerror = function () {
-          els.modalImg.src = placeholder;
-        };
-      }
-    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((ent) => {
+        if (ent.isIntersecting) fetchNextPage();
+      });
+    }, { root: null, rootMargin: '800px 0px', threshold: 0.01 });
 
-    showModal();
-    if (opts.updateHash !== false) setHashForItem(item);
+    io.observe(sentinel);
   }
 
-  // Infinite scroll (simple + reliable)
-  function onScroll() {
-    const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 1200);
-    if (nearBottom) loadNextPage();
-  }
+  function setupHashSearch() {
+    const params = parseHash();
+    if (params.q) state.q = (params.q || '').trim();
 
-  // Search
-  if (els.search) {
+    const input = document.querySelector('.tbf-photofall__search input[type="search"]');
+    if (!input) return;
+
+    input.value = state.q || '';
+
     let t = null;
-    els.search.addEventListener('input', function () {
+    input.addEventListener('input', () => {
       clearTimeout(t);
-      t = setTimeout(function () {
-        state.q = (els.search.value || '').trim();
-        state.page = 1;
-        state.hasMore = true;
-        els.grid.innerHTML = '';
-        loadNextPage();
-      }, 250);
+      t = setTimeout(() => {
+        state.q = (input.value || '').trim();
+        setHashParam('q', state.q);
+
+        // Reload to page 1 (SEO safe)
+        const base = window.location.pathname.replace(/\/page\/\d+\/?$/, '/');
+        window.location.href = base;
+      }, 350);
     });
   }
 
-  // Modal close
-  if (els.modalClose) els.modalClose.addEventListener('click', hideModal);
-  if (els.modal) {
-    els.modal.addEventListener('click', function (e) {
-      if (e.target === els.modal) hideModal();
-    });
-  }
-  window.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') hideModal();
+  $(function () {
+    setupHashSearch();
+    setupInfiniteScroll();
   });
 
-  // Hash routing
-  window.addEventListener('hashchange', loadItemDetailByHash);
-
-  // Boot
-  window.addEventListener('scroll', onScroll, { passive: true });
-  loadNextPage().then(loadItemDetailByHash);
-
-})();
+})(jQuery);

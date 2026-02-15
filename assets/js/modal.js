@@ -1,12 +1,12 @@
 /* global jQuery, _, Backbone, wp, TBF_NMI */
 /* =========================================================
    File: assets/js/modal.js
-   Version: 3.0.1
+   Version: 3.0.3
 
-   Fixes (v3.0.1):
-   - Gallery: proxy attachments now render thumbnails (PHP supplies sizes via wp_prepare_attachment_for_js)
-   - Single/Featured: enforce single selection (clear previous selectedMap + UI)
-   - Keeps: vkmedia support + multi-select for gallery/playlist
+   Featured (Gutenberg/REST):
+   - Save remote featured meta via AJAX (tbf_nmi_set_featured_remote)
+   - Set featured_media to placeholder attachment (prevents WP REST from deleting _thumbnail_id)
+   - Show visible errors if AJAX fails (so it never silently "stays placeholder")
    ========================================================= */
 (function ($) {
   if (!window.wp || !wp.media || !window.TBF_NMI) return;
@@ -17,6 +17,13 @@
   const err  = (...a) => { if (DEBUG) console.error('[TBF_NMI]', ...a); };
 
   const PLACEHOLDER_ID = parseInt((TBF_NMI && TBF_NMI.placeholderId) ? TBF_NMI.placeholderId : 0, 10) || 0;
+
+  function getCurrentPostId() {
+    try {
+      const id = wp.media?.model?.settings?.post?.id;
+      return parseInt(id || 0, 10) || 0;
+    } catch (e) { return 0; }
+  }
 
   const Ajax = {
     list(params) {
@@ -57,10 +64,16 @@
         method: 'POST',
         cache: false,
         dataType: 'json',
-        data: Object.assign({
-          action: 'tbf_nmi_proxy_url',
-          nonce: TBF_NMI.nonce
-        }, payload || {})
+        data: Object.assign({ action: 'tbf_nmi_proxy_url', nonce: TBF_NMI.nonce }, payload || {})
+      });
+    },
+    setFeaturedRemote(payload) {
+      return $.ajax({
+        url: TBF_NMI.ajax,
+        method: 'POST',
+        cache: false,
+        dataType: 'json',
+        data: Object.assign({ action: 'tbf_nmi_set_featured_remote', nonce: TBF_NMI.nonce }, payload || {})
       });
     }
   };
@@ -122,16 +135,14 @@
 
   const Controller = function(frame){
     this.frame = frame;
-    this.selectedMap = {}; // key => { model, localId, pending }
+    this.selectedMap = {};
     this.viewInstance = null;
-    this.proxyCache = {};  // key => localId
+    this.proxyCache = {};
   };
 
   Controller.prototype._key = function(model){
     const m = model.toJSON();
-    if (m.source === 'vkmedia') {
-      return 'vk:' + String(m.vkmedia_id || 0) + ':' + String(m.user_id || 0);
-    }
+    if (m.source === 'vkmedia') return 'vk:' + String(m.vkmedia_id || 0) + ':' + String(m.user_id || 0);
     return String(m.blog_id) + ':' + String(m.attachment_id);
   };
 
@@ -148,7 +159,6 @@
   };
 
   Controller.prototype.clear = function(){
-    // Clear UI selection for all keys currently selected
     Object.keys(this.selectedMap).forEach((k) => {
       this._selectUI(k, false);
       this._markPending(k, false);
@@ -157,20 +167,11 @@
     clearFrameSelection(this.frame);
   };
 
-  /**
-   * v3.0.1: in single-select frames, enforce ONLY ONE selected item
-   */
   Controller.prototype._enforceSingleSelection = function(){
-    // remove existing selection from WP frame too
     clearFrameSelection(this.frame);
-
-    // remove all UI/map selections
     Object.keys(this.selectedMap).forEach((k) => {
       const entry = this.selectedMap[k];
-      if (entry && entry.localId) {
-        // remove from selection if present (safe)
-        removeFromFrameSelection(this.frame, entry.localId);
-      }
+      if (entry && entry.localId) removeFromFrameSelection(this.frame, entry.localId);
       this._selectUI(k, false);
       this._markPending(k, false);
     });
@@ -184,12 +185,8 @@
 
     log('Selected network item:', m);
 
-    // If single-select frame: clear everything before selecting new
-    if (!multi) {
-      this._enforceSingleSelection();
-    }
+    if (!multi) this._enforceSingleSelection();
 
-    // If already selected: in multi mode toggle off
     if (this.selectedMap[key]) {
       if (multi) {
         const entry = this.selectedMap[key];
@@ -207,7 +204,6 @@
     this._markPending(key, true);
     this._setStatus('Preparing...');
 
-    // Single select: keep buttons alive with placeholder
     if (!multi) {
       if (PLACEHOLDER_ID > 0) setFrameSelectionSingle(this.frame, PLACEHOLDER_ID);
       else clearFrameSelection(this.frame);
@@ -227,8 +223,6 @@
 
     const done = (localId) => {
       this.proxyCache[key] = localId;
-
-      // In single-select mode, user might have clicked another item already
       if (!this.selectedMap[key]) return;
 
       this.selectedMap[key].localId = localId;
@@ -264,7 +258,6 @@
         done(localId);
       })
       .fail(fail);
-
       return;
     }
 
@@ -470,28 +463,66 @@
 
       this.content.set(view);
 
-      // Gallery/playlist: let WP handle toolbar click using selection collection
       if (isMultiSelectFrame(this)) return;
 
       const toolbar = this.toolbar && this.toolbar.get && this.toolbar.get('select');
-      if (toolbar) {
-        const frame = this;
-        toolbar.click = () => {
-          const keys = Object.keys(controller.selectedMap);
-          if (!keys.length) return;
+      if (!toolbar) return;
 
-          // single mode: only one key should exist now
-          const entry = controller.selectedMap[keys[0]];
-          if (!entry || entry.pending || !entry.localId) {
-            controller._setStatus('Preparing...');
-            return;
-          }
+      const frame = this;
+      toolbar.click = () => {
+        const keys = Object.keys(controller.selectedMap);
+        if (!keys.length) return;
 
-          const attachment = setFrameSelectionSingle(frame, entry.localId);
-          frame.close();
-          frame.state().trigger('select', attachment);
-        };
-      }
+        const entry = controller.selectedMap[keys[0]];
+        if (!entry || entry.pending || !entry.localId) {
+          controller._setStatus('Preparing...');
+          return;
+        }
+
+        const postId = getCurrentPostId();
+        if (!postId) {
+          alert('TBF NMI: Could not detect post ID (wp.media.model.settings.post.id).');
+          controller._setStatus('Cannot detect post ID.');
+          return;
+        }
+
+        const m = entry.model ? entry.model.toJSON() : {};
+        const url = m.url || '';
+        const mime = m.mime || 'application/octet-stream';
+        const type = (m.media_type || '').toLowerCase() || (
+          (mime.indexOf('video/') === 0) ? 'video' :
+          (mime.indexOf('audio/') === 0) ? 'audio' :
+          (mime.indexOf('image/') === 0) ? 'image' : 'file'
+        );
+
+        controller._setStatus('Saving featured...');
+        log('Saving featured remote meta', { postId, url, mime, type });
+
+        Ajax.setFeaturedRemote({ post_id: postId, url, mime, type })
+          .done((resp) => {
+            log('setFeaturedRemote response', resp);
+            if (!resp || resp.success !== true) {
+              alert('TBF NMI: Failed to save featured remote meta. Check console for details.');
+              controller._setStatus('Failed to save featured.');
+              return;
+            }
+
+            if (PLACEHOLDER_ID <= 0) {
+              alert('TBF NMI: Placeholder attachment is missing.');
+              controller._setStatus('Placeholder missing.');
+              return;
+            }
+
+            const attachment = setFrameSelectionSingle(frame, PLACEHOLDER_ID);
+            frame.close();
+            frame.state().trigger('select', attachment);
+          })
+          .fail((xhr) => {
+            err('setFeaturedRemote AJAX failed', xhr);
+            alert('TBF NMI: AJAX failed saving featured remote meta. Check console.');
+            controller._setStatus('AJAX failed.');
+          });
+      };
     });
   };
 
