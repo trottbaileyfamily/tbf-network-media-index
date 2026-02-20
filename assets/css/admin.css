@@ -6,7 +6,7 @@
    ========================================================= */
 
 /* Container */
-.tbf-nmi-view{
+.tbfnmi-view{
   position:absolute;
   top:0; left:0; right:0; bottom:0;
   display:flex !important;
@@ -15,7 +15,7 @@
 }
 
 /* Toolbar */
-.tbf-nmi-toolbar{
+.tbfnmi-toolbar{
   padding:10px 20px;
   border-bottom:1px solid #ccd0d4;
   background:#fff;
@@ -26,7 +26,7 @@
 }
 
 /* Grid */
-.tbf-nmi-grid{
+.tbfnmi-grid{
   display:flex !important;
   flex-wrap:wrap !important;
   gap:12px !important;
@@ -38,7 +38,7 @@
 }
 
 /* Tile size (this is what fixes “tiny images”) */
-.tbf-nmi-item{
+.tbfnmi-item{
   width:150px !important;
   height:150px !important;
   min-width:150px !important;
@@ -48,7 +48,7 @@
 }
 
 /* WP-like card */
-.tbf-nmi-item .attachment-preview{
+.tbfnmi-item .attachment-preview{
   width:150px !important;
   height:150px !important;
   position:relative !important;
@@ -59,7 +59,7 @@
 }
 
 /* Thumbnail wrapper */
-.tbf-nmi-item .thumbnail{
+.tbfnmi-item .thumbnail{
   width:100% !important;
   height:100% !important;
   display:flex !important;
@@ -69,7 +69,7 @@
 }
 
 /* Force image fill */
-.tbf-nmi-item .thumbnail img{
+.tbfnmi-item .thumbnail img{
   width:100% !important;
   height:100% !important;
   object-fit:cover !important;
@@ -77,16 +77,22 @@
 }
 
 /* Hide filename so it doesn’t shrink the tile */
-.tbf-nmi-item .filename{
+.tbfnmi-item .filename{
   display:none !important;
 }
 
 /* Hover highlight */
-.tbf-nmi-item:hover .attachment-preview{
+.tbfnmi-item:hover .attachment-preview{
   box-shadow:0 0 0 2px #2271b1;
 }
 
 /* Selected (keep your working blue selector) */
-.tbf-nmi-item.is-selected .attachment-preview{
+.tbfnmi-item.is-selected .attachment-preview{
   box-shadow:0 0 0 4px #2271b1;
 }
+
+/* File: assets/css/admin.css | Version: 2.1.0 */
+.tbfnmi-grid .attachment .check { display:block !important; opacity:0; }
+.tbfnmi-grid .attachment.is-selected .check { opacity:1; }
+.tbfnmi-grid .attachment.is-selected .check .media-modal-icon:before { opacity:1; }
+

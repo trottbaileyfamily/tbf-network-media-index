@@ -1,188 +1,96 @@
 === TBF Network Media Index ===
-Contributors: kimroybailey, trottbaileyfamily, davidluis123
-Tags: multisite, media library, network media, featured image, media modal, gutenberg, attachments
-Requires at least: 6.0
+Contributors: sherikatrottbailey, kimroybailey, davidluis123
+Tags: multisite, media library, network media, photofall gallery, cross-site images
+Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.0.27
+Stable tag: 6.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Browse, search, and use media from every site in a WordPress multisite network as if all images lived in one media library — without copying or moving a single file.
+Browse, search, insert media from every site in a multisite network. Features the "Photofall" masonry gallery, BuddyPress/Vikinger frontend sync.
 
 == Description ==
 
-TBF Network Media Index allows administrators of a WordPress Multisite network to access media from every site through a single **Network Media** tab inside the WordPress media modal.
+**TBF Network Media Index** is the ultimate multisite media solution. It allows administrators and users of a WordPress Multisite network to access, search, and utilize media from every single site through one unified **Network Media** tab—without duplicating or copying files across your server.
 
-You can:
+This plugin was born out of necessity and purpose. It was built to manage over **10,000 images, videos, and audio files** documenting the road to bringing **AgriGames** to life. 
 
-- Search network media by title
-- Filter by media type
-- Filter by origin site
-- Insert images into posts from any site
-- Set Featured Images from any site (Gutenberg compatible)
-- Do all of this **without duplicating files**
+### See the Power in Action
+Experience the sheer scale of the Network Media Index and the Photofall Gallery in a live environment:
+**[View the AgriGames Journey (1Drop Photo Gallery)](https://trottbaileyfamily.com/1drop/photo)**
 
-This plugin was created by the Trott Bailey Family to manage thousands of images and videos spread across multiple sites for:
+Learn more about the plugin on our official landing page:
+**[TBF Network Media Index Official Page](https://trottbaileyfamily.com/tbf-network-media-index)**
 
-- AgriGames
-- Family media productions
-- Kingdom of Iztolev archives
-- Public and private multisite platforms
-- Smart-screen and offline installations
+### 🚀 Powerful Core Features
+* **Global Network Indexer:** Scans and indexes images, videos, and audio across thousands of subsites in real-time, using safe chunked-processing to prevent server timeouts.
+* **The "Photofall" Gallery:** A gorgeous, Pinterest-style frontend masonry grid that renders your entire network’s media. Includes advanced sorting, live search, and filtering by year, media type, and origin site.
+* **Vikinger & BuddyPress Bridge:** Automatically syncs frontend member uploads from custom theme directories directly into the WordPress Media Library for network-wide availability. Enforces strict Admin/Super Admin rules for security.
+* **Zero-Duplication Proxy System:** Insert images or set Gutenberg Featured Images from any site. The plugin creates a lightweight, DB-only proxy rather than copying the physical file, saving massive amounts of server storage.
+* **Universal Lightbox:** A custom-built, responsive frontend lightbox that natively supports looping video, audio tracks, and high-res imagery with keyboard navigation.
 
-WordPress treats each site’s media library as a silo. This plugin removes those silos.
+== The Vision & Philosophy ==
 
-== How It Works ==
+This plugin is a product of **woman-powered development, led by our matriarch and Lead Developer, Sherika Trott Bailey**, under the Trott Bailey Family Group. 
 
-1. AJAX scans attachments across network sites
-2. Results render in a custom "Network Media" tab in the media modal
-3. When you select an image, a **DB-only proxy attachment** is created locally
-4. WordPress is safely instructed to treat that proxy as real media
-5. Special filters ensure Featured Image previews and REST API calls work
-6. No files are copied, moved, or synced
+Technology should serve a greater purpose. For us, this plugin is the archival engine for **AgriGames** and the Trott Bailey Family Kingdom. 
 
-== Features ==
+The heart of all AgriGames and Trott Bailey Family Kingdom is for families to enjoy themselves in a free environment that they never have to think about price for anything. AgriGames venues are unique places chosen for their beauty or utility. No two AgriGames are exactly alike. The heart of AgriGames never changes though; it's a place where each member of the family has things to do that absolutely delights them, from the babies to the young kids, teens, and the parents. 
 
-- Network-wide media search
-- Media type filtering (images, videos, audio, documents)
-- Origin site filtering
-- Proper WordPress-style media tiles
-- Blue selection UI identical to native media library
-- Insert into posts from any site
-- Set Featured Image from any site (Block Editor supported)
-- Reuses existing proxies (no duplication)
-- No file copying
-- Deep integration with WordPress media internals
-
-== Requirements ==
-
-- WordPress Multisite
-- Network activated
-- Administrator permissions
+AgriGames combines fun, fashion, unique architecture, play, and freedom of travel between different venues all for free. Visitors can camp and stay for free, and enjoy all the experiences for free. This plugin organizes the tens of thousands of media files documenting the road to making this money-free world a reality.
 
 == Installation ==
 
-1. Upload the plugin folder to `/wp-content/plugins/`
-2. Network activate the plugin
-3. Open any post or page editor
-4. Click **Add Media** or **Set Featured Image**
-5. Use the **Network Media** tab
+1. Upload the `tbf-network-media-index` folder to the `/wp-content/plugins/` directory.
+2. Network Activate the plugin through the 'Plugins' menu in WordPress.
+3. Navigate to **Network Admin -> TBF Network Media**.
+4. Run the **Full Network Index** to build your initial database.
+5. If using the Vikinger theme, click **Sync Vikinger Frontend Uploads** to bridge your custom directories.
+6. Visit any post or page editor and click **Add Media** to see the new Network tab!
 
 == Frequently Asked Questions ==
 
 = Does this copy images between sites? =
+No. It creates a database-only "proxy" record that points to the original image URL, keeping your server storage highly optimized.
 
-No. It creates database-only proxy records that point to the original image URL.
+= Does this work with Gutenberg Featured Images? =
+Yes! Version 6.x fully supports the Block Editor Featured Image panel using our zero-duplication proxy system.
 
-= Does this work with Gutenberg Featured Image? =
+= Does this work with Elementor? =
+Yes! Version 6.x fully supports the Elementor add image from any site across your network to your elementor post, page or project.
 
-Yes. Version 1.0.27 fully supports the Block Editor Featured Image panel.
+= What happens to frontend uploads from users? =
+The plugin features a robust integration with BuddyPress and the Vikinger theme. Administrators can easily sync custom frontend upload folders into the central media index.
 
-= Is this safe for large networks? =
-
-Yes. It uses paginated AJAX loading and never performs heavy cross-site operations in a single request.
-
-== Philosophy ==
-
-This plugin reflects how the Trott Bailey Family builds technology:
-
-Don’t duplicate.  
-Don’t waste storage.  
-Don’t fight WordPress — understand it deeply and work with it.  
-Make complex systems feel simple to use.
+= Is it safe for massive networks? =
+Absolutely. The indexer and the frontend "Load More" AJAX features are built with chunked processing, meaning they safely handle tens of thousands of files without crashing your server.
 
 == Changelog ==
 
+= 6.1.1 =
+* MAJOR: 100% WordPress Directory Compliance update (standardized all prefixes to `tbfnmi_` and aligned text-domains strictly to `tbf-network-media-index`).
+* FEATURE: Deep Vikinger Theme Bridge. Automatically scans custom `/vikinger/` frontend upload directories to bridge orphaned media into the native WordPress database.
+* FEATURE: Strict Admin-Only Enforcer. The Vikinger bridge actively extracts User IDs from file paths and securely rejects any uploads not belonging to an Administrator or Super Admin.
+* FEATURE: Native Audio Support. The global indexer, masonry grid, and universal lightbox now fully parse and play `.mp3`, `.wav`, and other audio formats, complete with dynamic fallback WP icons.
+* FEATURE: True Database Filtering. Replaced legacy CSS-hiding with a true database-driven query engine. Pagination now works flawlessly across 10,000+ images.
+* FEATURE: Smart Photofall Toolbar. Advanced form that auto-submits upon dropdown changes, allowing users to cross-filter by Media Type, Upload Year, and Origin Site.
+* FEATURE: Real-Time Terminal Indexer UI. Rebuilt the Dashboard importer with a visual progress bar, active-site tracker, and live terminal log.
+* ENHANCEMENT: Chunked Background Processing. Both the Global Indexer (100-file chunks) and the Vikinger Sync (10-file chunks) now use offset-looping to guarantee the server never times out or crashes during heavy operations like thumbnail generation.
+* ENHANCEMENT: "Load More" Filter Memory. The AJAX pagination engine now seamlessly remembers active search and dropdown parameters when fetching the next page of results.
+* ENHANCEMENT: Unique Site Permalinks. Completely restructured the URL router (e.g., `/photo/image/3-67899/`) to include the Origin Site ID, mathematically eliminating any chance of cross-site ID collisions.
+* ENHANCEMENT: Universal Lightbox Overhaul. Lightbox engine rewritten to safely pause, hide, and swap between Video tags, Audio tags, and standard Image tags dynamically without DOM overlap.
+* FIX: Cross-Site Single Page 404s. Bypassed native `get_post()` on Single Views to query the custom `tbfnmi_index` directly, allowing users to view cross-network media seamlessly.
+* FIX: Infinite Loop Proxy Duplication. Taught the auto-indexer and batch-scanner to actively look for `_tbfnmi_proxy` meta-flags. Proxy attachments created for Featured Images are now securely ignored, keeping the global index perfectly clean.
+* FIX: Missing Video Thumbnails. The query engine now actively extracts custom `poster_url` metadata and supplies high-quality native WP fallback icons if a custom video cover is missing.
+* FIX: AJAX "Server Connection Lost". Injected the Dashboard module loader into `wp_doing_ajax()` calls to prevent 400 Bad Request errors during background scans.
+
+= 6.0.0 =
+* FEATURE: Introduced the initial Photofall Gallery masonry layout.
+* FEATURE: Base architecture for the custom Global Network Media database table.
+* ENHANCEMENT: Unified cross-site WordPress Media Library modal tab ("Network Media").
+
 = 1.0.27 =
-* Introduced real placeholder attachment strategy
-* Gutenberg Featured Image works flawlessly
-* Fully stable cross-network virtual media library
-
-= 1.0.26 =
-* Fixed Gutenberg REST issue caused by placeholder id -1
-* Real attachment selection synced into media frame
-
-= 1.0.25 =
-* Console debugging for Featured Image flow
-
-= 1.0.24 =
-* Added image_downsize and URL filters for proxy images
-
-= 1.0.23 =
-* Synced WordPress media frame selection to enable Insert/Featured buttons
-
-= 1.0.22 =
-* Stabilized toolbar and insertion flow
-
-= 1.0.21 =
-* Restored search bar, filters, and proper tile sizing
-
-= 1.0.20 =
-* Restored toolbar UI and items counter
-
-= 1.0.19 =
-* Improved AJAX diagnostics and error reporting
-
-= 1.0.18 =
-* Fixed tiny thumbnail sizing without breaking selection
-
-= 1.0.17 =
-* Selection overlay made robust against WP core CSS
-
-= 1.0.16 =
-* Reworked selection overlay using real DOM elements
-
-= 1.0.15 =
-* Improved CSS specificity for selection indicator
-
-= 1.0.14 =
-* First fully stable version with search, filters, selection, insertion
-
-= 1.0.13 =
-* Stabilized AJAX responses and multisite scanning
-
-= 1.0.12 =
-* Fixed media modal layout conflicts
-
-= 1.0.11 =
-* Added blue selection UI
-
-= 1.0.10 =
-* Insert into post working
-
-= 1.0.9 =
-* Introduced DB-only proxy attachment system
-
-= 1.0.8 =
-* Added origin site filter
-
-= 1.0.7 =
-* Added media type filter
-
-= 1.0.6 =
-* Added search support
-
-= 1.0.5 =
-* Added pagination and load-more
-
-= 1.0.4 =
-* Added thumbnail previews
-
-= 1.0.3 =
-* Added site switching and restoration
-
-= 1.0.2 =
-* Basic AJAX loading of attachments across sites
-
-= 1.0.1 =
-* Integrated into WordPress media modal as custom tab
-
-= 1.0.0 =
-* Initial concept: list network media in a custom admin page
-
-== Credits ==
-
-Created by the Trott Bailey Family for the AgriGames ecosystem and the Kingdom of Iztolev media archives.
-
-TBF Network Media Index — turning a network of silos into one living media library.
+* Introduced real placeholder attachment strategy.
+* Gutenberg Featured Image works flawlessly.
+* Fully stable cross-network virtual media library proxy engine.
