@@ -4,7 +4,7 @@ Tags: multisite, media library, network media, photofall gallery, cross-site ima
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 6.1.1
+Stable tag: 6.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 

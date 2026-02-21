@@ -14,18 +14,7 @@ class TBFNMI_Admin {
   }
 
   public static function menu() {
-    // Network Admin (Multisite) settings page
-    if ( is_multisite() ) {
-      add_submenu_page(
-        'settings.php',
-        __('TBF Network Media Index', 'tbf-network-media-index'),
-        __('Network Media Index', 'tbf-network-media-index'),
-        'manage_network_options',
-        'tbfnmi-settings',
-        [__CLASS__, 'render']
-      );
-      return;
-    }
+    
 
     // Single-site settings page
     add_options_page(

@@ -1,20 +1,9 @@
 <?php
 /**
  * File: includes/class-tbfnmi-ajax.php
- * Version: 4.2.3
+ * Version: 6.2.9 (Backend Duplication & Thumbnail Sweeper)
  *
  * AJAX endpoints used by assets/js/modal.js
- *
- * Actions:
- * - tbfnmi_list
- * - tbfnmi_sites
- * - tbfnmi_proxy
- * - tbfnmi_proxy_url
- * - tbfnmi_set_featured_remote
- *
- * v4:
- * - If the Photofall index table exists, listing pulls from it (FAST).
- * - Falls back to cross-blog WP_Query if index table is missing.
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -36,11 +25,6 @@ class TBFNMI_AJAX {
     check_ajax_referer('tbfnmi_nonce', 'nonce');
   }
 
-  /**
-   * Save remote featured media (no file copying):
-   * - Stores URL/type/mime on the post
-   * - Forces _thumbnail_id to placeholder to keep Gutenberg stable
-   */
   public static function set_featured_remote() {
     self::verify();
 
@@ -120,6 +104,11 @@ class TBFNMI_AJAX {
     $where = "1=1";
     $params = [];
 
+    // SWEEPER: Hide auto-generated sizes from Vikinger in the backend UI
+    $where .= " AND (url_full NOT LIKE %s OR url_full NOT REGEXP %s)";
+    $params[] = '%/vikinger/%';
+    $params[] = '-[0-9]+x[0-9]+[^/]*[.][a-zA-Z0-9]+$';
+
     if ( $originBlogId > 0 ) {
       $where .= " AND blog_id = %d";
       $params[] = $originBlogId;
@@ -147,15 +136,33 @@ class TBFNMI_AJAX {
       $params[] = $like; $params[] = $like; $params[] = $like;
     }
 
-    $totalSql = "SELECT COUNT(*) FROM {$table} WHERE {$where}";
-    $total = (int)$wpdb->get_var( $params ? $wpdb->prepare($totalSql, $params) : $totalSql );
+    if ( empty( $params ) ) {
+        $where .= " AND 1=%d";
+        $params[] = 1;
+    }
+
+    // FIX: Distinct URL count so pagination calculates correctly
+    $totalSql = "SELECT COUNT(DISTINCT url_full) FROM {$table} WHERE {$where}";
+    $total = (int)$wpdb->get_var( $wpdb->prepare($totalSql, $params) );
 
     $offset = ($page - 1) * $per;
 
-    $sql = "SELECT blog_id, attachment_id, title, mime, media_type, url_full, url_medium, url_thumb, poster_url, created_gmt
+    // FIX: Group by url_full to perfectly merge all backend duplicate entries into one
+    $sql = "SELECT 
+                MAX(blog_id) as blog_id, 
+                MAX(attachment_id) as attachment_id, 
+                MAX(title) as title, 
+                MAX(mime) as mime, 
+                MAX(media_type) as media_type, 
+                url_full, 
+                MAX(url_medium) as url_medium, 
+                MAX(url_thumb) as url_thumb, 
+                MAX(poster_url) as poster_url, 
+                MAX(created_gmt) as created_gmt
             FROM {$table}
             WHERE {$where}
-            ORDER BY created_gmt DESC, blog_id DESC, attachment_id DESC
+            GROUP BY url_full
+            ORDER BY created_gmt DESC
             LIMIT %d OFFSET %d";
 
     $params2 = $params;
@@ -167,6 +174,12 @@ class TBFNMI_AJAX {
     $items = [];
     foreach ((array)$rows as $r) {
       $thumb = $r['url_thumb'] ?: ($r['poster_url'] ?: ($r['url_medium'] ?: $r['url_full']));
+      
+      // Fallback icon for backend audio files
+      if ($r['media_type'] === 'audio') {
+          $thumb = includes_url('images/media/audio.png');
+      }
+      
       $items[] = [
         'blog_id' => (int)$r['blog_id'],
         'attachment_id' => (int)$r['attachment_id'],
@@ -231,6 +244,8 @@ class TBFNMI_AJAX {
           if ($mediaType === 'image') {
             $t = wp_get_attachment_image_src($aid, 'thumbnail');
             $thumb = is_array($t) ? (string)$t[0] : '';
+          } elseif ($mediaType === 'audio') {
+            $thumb = includes_url('images/media/audio.png');
           }
           if (!$thumb) $thumb = $url;
 
@@ -256,7 +271,6 @@ class TBFNMI_AJAX {
       ];
     }
 
-    // non-multisite
     $args = [
       'post_type' => 'attachment',
       'post_status' => 'inherit',
@@ -291,6 +305,8 @@ class TBFNMI_AJAX {
       if ($mediaType === 'image') {
         $t = wp_get_attachment_image_src($aid, 'thumbnail');
         $thumb = is_array($t) ? (string)$t[0] : '';
+      } elseif ($mediaType === 'audio') {
+        $thumb = includes_url('images/media/audio.png');
       }
       if (!$thumb) $thumb = $url;
 
@@ -336,10 +352,6 @@ class TBFNMI_AJAX {
     wp_send_json_success(['sites' => $out]);
   }
 
-  /**
-   * Create a local proxy attachment for a media item from another blog in the network.
-   * No file copying, just store remote URL in proxy meta.
-   */
   public static function proxy() {
     self::verify();
 
@@ -384,10 +396,6 @@ class TBFNMI_AJAX {
     wp_send_json_success(['local_attachment_id' => (int)$localId]);
   }
 
-  /**
-   * Create a local proxy attachment for an external URL (including vkmedia).
-   * No file copying.
-   */
   public static function proxy_url() {
     self::verify();
 

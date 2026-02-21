@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/integrations/class-tbfnmi-vikinger-bridge.php
- * Version: 6.1.1 (Chunked Sync + Prefix Compliant)
+ * Version: 6.2.1 (Thumbnail Blocker)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -18,7 +18,7 @@ class TBFNMI_Vikinger_Bridge {
 
         $blog_id = isset($_POST['blog_id']) ? (int)$_POST['blog_id'] : get_current_blog_id();
         $offset  = isset($_POST['offset']) ? (int)$_POST['offset'] : 0;
-        $limit   = 10; // Process 10 files at a time to prevent server timeout
+        $limit   = 10; 
         
         if ( is_multisite() ) {
             switch_to_blog($blog_id);
@@ -32,22 +32,27 @@ class TBFNMI_Vikinger_Bridge {
             wp_send_json_success(['synced' => 0, 'done' => true, 'message' => 'No Vikinger folder found on this site.']);
         }
 
-        // 1. Gather ALL files quickly into an array
         $all_files = [];
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($vikinger_dir, RecursiveDirectoryIterator::SKIP_DOTS));
         $allowed_exts = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'wav', 'webm'];
 
         foreach ($iterator as $file) {
             if ($file->isDir()) continue;
-            $ext = strtolower(pathinfo($file->getFilename(), PATHINFO_EXTENSION));
+            
+            $filename = $file->getFilename();
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            // BLOCKER: Skip WP/Vikinger auto-generated thumbnails (e.g. image-150x150.jpg)
+            if ( preg_match('/-\d+x\d+.*\.([a-z]+)$/i', $filename) ) {
+                continue; 
+            }
+
             if ( in_array($ext, $allowed_exts) ) {
                 $all_files[] = $file->getPathname();
             }
         }
 
         $total_files = count($all_files);
-        
-        // 2. Slice the array to get just our current chunk of 10
         $chunk = array_slice($all_files, $offset, $limit);
         $synced_count = 0;
 
@@ -60,14 +65,12 @@ class TBFNMI_Vikinger_Bridge {
             if ( $user_id > 0 ) {
                 $user_meta = get_userdata($user_id);
                 $is_admin = false;
-                
                 if ( $user_meta ) {
                     if ( is_super_admin($user_id) || in_array('administrator', (array)$user_meta->roles) ) {
                         $is_admin = true;
                     }
                 }
-                
-                if ( ! $is_admin ) continue; // Skip normal users
+                if ( ! $is_admin ) continue; 
             } else {
                 continue; 
             }
@@ -95,7 +98,6 @@ class TBFNMI_Vikinger_Bridge {
                 
                 if ( ! is_wp_error($attach_id) ) {
                     require_once(ABSPATH . 'wp-admin/includes/image.php');
-                    // This heavy operation is why we chunk!
                     $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
                     wp_update_attachment_metadata($attach_id, $attach_data);
                     

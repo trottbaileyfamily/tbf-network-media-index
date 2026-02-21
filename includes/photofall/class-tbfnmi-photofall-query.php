@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfnmi-photofall-query.php
- * Version: 6.0.6 (Cross-Site Single Item Fix)
+ * Version: 6.2.5 (URL-Based De-duplication & Strict Grouping)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -11,90 +11,59 @@ class TBFNMI_Photofall_Query {
   public static function get_single($id, $blog_id = 0) {
       global $wpdb;
       $table = $wpdb->base_prefix . 'tbfnmi_index';
-      
-      $id = (int)$id;
-      $blog_id = (int)$blog_id;
+      $id = (int)$id; $blog_id = (int)$blog_id;
 
-      // Ensure table exists (failsafe)
       $like = $wpdb->esc_like($table);
-      if ( empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $like))) ) {
-          return false;
-      }
+      if ( empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $like))) ) return false;
 
-      // Query the Global Index Table
-      $where = $wpdb->prepare("attachment_id = %d", $id);
-      if ($blog_id > 0) {
-          $where .= $wpdb->prepare(" AND blog_id = %d", $blog_id);
-      }
+      $where = "attachment_id = %d"; $prepare_values = [$id];
+      if ($blog_id > 0) { $where .= " AND blog_id = %d"; $prepare_values[] = $blog_id; }
 
-      // Order by latest in case of fallback collision (if no blog_id was provided)
       $sql = "SELECT blog_id, attachment_id, media_type, title, caption, mime, url_full, url_medium, url_thumb, poster_url, content_url, width, height 
-              FROM $table 
-              WHERE $where 
-              ORDER BY created_gmt DESC 
-              LIMIT 1";
-              
-      $row = $wpdb->get_row($sql);
+              FROM $table WHERE $where ORDER BY created_gmt DESC LIMIT 1";
+      $row = $wpdb->get_row( $wpdb->prepare($sql, $prepare_values) );
 
-      // Failsafe: If not in index, try local WP Post (for extremely new uploads not yet indexed)
       if ( ! $row ) {
           $post = get_post($id);
           if ( ! $post || $post->post_type !== 'attachment' ) return false;
           
           $row = new stdClass();
-          $row->attachment_id = $post->ID;
-          $row->blog_id       = get_current_blog_id();
-          $row->title         = $post->post_title;
-          $row->caption       = $post->post_excerpt;
-          $row->mime          = $post->post_mime_type;
+          $row->attachment_id = $post->ID; $row->blog_id = get_current_blog_id();
+          $row->title = $post->post_title; $row->caption = $post->post_excerpt;
+          $row->mime = $post->post_mime_type;
           
           $mediaType = 'image';
           if (strpos($row->mime, 'video') !== false) $mediaType = 'video';
           if (strpos($row->mime, 'audio') !== false) $mediaType = 'audio';
-          $row->media_type    = $mediaType;
+          $row->media_type = $mediaType;
           
-          $row->url_full      = wp_get_attachment_url($post->ID);
-          $row->url_medium    = '';
-          $row->url_thumb     = '';
-          $row->poster_url    = '';
-          $row->content_url   = $row->url_full;
-          $row->width         = 800;
-          $row->height        = 600;
+          $row->url_full = wp_get_attachment_url($post->ID); $row->url_medium = ''; $row->url_thumb = '';
+          $row->poster_url = ''; $row->content_url = $row->url_full; $row->width = 800; $row->height = 600;
       }
 
-      // Hydrate into an Object for the Templates
       $p = new stdClass();
-      $p->ID = $row->attachment_id;
-      $p->post_title = $row->title;
-      $p->post_excerpt = $row->caption;
-      $p->post_mime_type = $row->mime;
-      $p->type = $row->media_type;
-      $p->blog_id = $row->blog_id;
+      $p->ID = $row->attachment_id; $p->post_title = $row->title; $p->post_excerpt = $row->caption;
+      $p->post_mime_type = $row->mime; $p->type = $row->media_type; $p->blog_id = $row->blog_id;
 
       if ($row->media_type === 'video' || $row->media_type === 'audio') {
           $p->tbf_url_full = $row->content_url ?: $row->url_full;
           $p->tbf_url_thumb = $row->poster_url ?: $row->url_thumb;
-          
           if (empty($p->tbf_url_thumb)) {
               $icon = ($row->media_type === 'video') ? 'video.png' : 'audio.png';
               $p->tbf_url_thumb = includes_url('images/media/' . $icon);
           }
       } else {
-          $p->tbf_url_full   = $row->url_full;
-          $p->tbf_url_thumb  = $row->url_medium ?: $row->url_thumb;
+          $p->tbf_url_full = $row->url_full; $p->tbf_url_thumb = $row->url_medium ?: $row->url_thumb;
           if ( empty($p->tbf_url_thumb) ) $p->tbf_url_thumb = $row->url_full;
       }
 
-      $p->tbf_width  = (int)$row->width;
-      $p->tbf_height = (int)$row->height;
-
+      $p->tbf_width = (int)$row->width; $p->tbf_height = (int)$row->height;
       return $p;
   }
 
   public static function get_filter_data() {
       global $wpdb;
       $table = $wpdb->base_prefix . 'tbfnmi_index';
-      
       $years = $wpdb->get_col("SELECT DISTINCT year FROM $table WHERE year > 0 ORDER BY year DESC");
       $site_ids = $wpdb->get_col("SELECT DISTINCT blog_id FROM $table");
       $sites = [];
@@ -103,20 +72,19 @@ class TBFNMI_Photofall_Query {
           if ($name) $sites[$id] = $name;
       }
       asort($sites);
-
       return ['years' => $years, 'sites' => $sites];
   }
 
   public static function get_media($args = []) {
     global $wpdb;
     $table = $wpdb->base_prefix . 'tbfnmi_index';
-
     $settings = TBFNMI_Subsite_Settings::get_options();
     
     $defaults = [
       'allowed_types' => $settings['allowed_types'],
       'sort'          => $settings['default_sort'],
       'filter'        => 'all',
+      'source'        => 'all', 
       'search'        => '',
       'year'          => '',
       'site_filter'   => '',
@@ -124,37 +92,61 @@ class TBFNMI_Photofall_Query {
       'per_page'      => 50,
       'exclude'       => [],
       'source_sites'  => $settings['source_sites'],
-      'show_frontend' => isset($settings['show_frontend']) ? $settings['show_frontend'] : 1,
     ];
     $args = wp_parse_args($args, $defaults);
 
     $where = ["1=1"];
+    $prepare_values = [];
     
+    // UGLY THUMBNAIL SWEEPER
+    $where[] = "(url_full NOT LIKE %s OR url_full NOT REGEXP %s)";
+    $prepare_values[] = '%/vikinger/%';
+    $prepare_values[] = '-[0-9]+x[0-9]+[^/]*[.][a-zA-Z0-9]+$';
+
+    // SOURCE DROPDOWN: Frontend vs Backend
+    if ( ! empty($args['source']) && $args['source'] !== 'all' ) {
+        if ( $args['source'] === 'frontend' ) {
+            $where[] = "url_full LIKE %s";
+            $prepare_values[] = '%/vikinger/%';
+        } elseif ( $args['source'] === 'backend' ) {
+            $where[] = "url_full NOT LIKE %s";
+            $prepare_values[] = '%/vikinger/%';
+        }
+    }
+
     if ( ! empty($args['search']) ) {
         $like = '%' . $wpdb->esc_like( sanitize_text_field($args['search']) ) . '%';
-        $where[] = $wpdb->prepare("(title LIKE %s OR caption LIKE %s OR tags_csv LIKE %s)", $like, $like, $like);
+        $where[] = "(title LIKE %s OR caption LIKE %s OR tags_csv LIKE %s)";
+        array_push($prepare_values, $like, $like, $like);
     }
 
     if ( ! empty($args['year']) ) {
-        $where[] = $wpdb->prepare("year = %d", intval($args['year']));
+        $where[] = "year = %d"; $prepare_values[] = intval($args['year']);
     }
 
     if ( ! empty($args['site_filter']) ) {
-        $where[] = $wpdb->prepare("blog_id = %d", intval($args['site_filter']));
+        $where[] = "blog_id = %d"; $prepare_values[] = intval($args['site_filter']);
     } elseif ( ! empty($args['source_sites']) ) {
         $site_ids = array_map('intval', $args['source_sites']);
-        $where[] = "blog_id IN (" . implode(',', $site_ids) . ")";
+        $placeholders = implode( ', ', array_fill( 0, count( $site_ids ), '%d' ) );
+        $where[] = "blog_id IN ( $placeholders )";
+        $prepare_values = array_merge($prepare_values, $site_ids);
     }
 
     $types = ($args['filter'] !== 'all') ? [$args['filter']] : $args['allowed_types'];
-    $type_clauses = [];
-    foreach ($types as $t) $type_clauses[] = $wpdb->prepare("media_type = %s", $t);
-    if (!empty($type_clauses)) $where[] = "(" . implode(' OR ', $type_clauses) . ")";
-    else $where[] = "1=0"; 
+    if ( ! empty($types) ) {
+        $placeholders = implode( ', ', array_fill( 0, count( $types ), '%s' ) );
+        $where[] = "media_type IN ( $placeholders )";
+        $prepare_values = array_merge($prepare_values, $types);
+    } else {
+        $where[] = "1=0"; 
+    }
 
     if (!empty($args['exclude'])) {
         $exclude_ids = array_map('intval', $args['exclude']);
-        $where[] = "attachment_id NOT IN (" . implode(',', $exclude_ids) . ")";
+        $placeholders = implode( ', ', array_fill( 0, count( $exclude_ids ), '%d' ) );
+        $where[] = "attachment_id NOT IN ( $placeholders )";
+        $prepare_values = array_merge($prepare_values, $exclude_ids);
     }
 
     $orderby = "created_gmt DESC";
@@ -167,47 +159,62 @@ class TBFNMI_Photofall_Query {
 
     $where_sql = implode(' AND ', $where);
     
-    $sql = "SELECT blog_id, attachment_id, media_type, title, caption, mime, url_full, url_medium, url_thumb, poster_url, content_url, width, height 
+    // COUNT FIX: Count distinct URLs to fix pagination math
+    $count_sql = "SELECT COUNT(DISTINCT url_full) FROM $table WHERE $where_sql";
+    if ( ! empty($prepare_values) ) {
+        $total = $wpdb->get_var( $wpdb->prepare($count_sql, $prepare_values) );
+    } else {
+        $total = $wpdb->get_var( $count_sql );
+    }
+    
+    $max_pages = ceil($total / $per_page);
+
+    // DEDUPLICATION FIX: Group by URL to eliminate duplicate attachments. 
+    // Uses MAX() to ensure strict SQL mode compatibility.
+    $sql = "SELECT 
+                MAX(blog_id) as blog_id, 
+                MAX(attachment_id) as attachment_id, 
+                MAX(media_type) as media_type, 
+                MAX(title) as title, 
+                MAX(caption) as caption, 
+                MAX(mime) as mime, 
+                url_full, 
+                MAX(url_medium) as url_medium, 
+                MAX(url_thumb) as url_thumb, 
+                MAX(poster_url) as poster_url, 
+                MAX(content_url) as content_url, 
+                MAX(width) as width, 
+                MAX(height) as height, 
+                MAX(created_gmt) as created_gmt 
             FROM $table 
             WHERE $where_sql 
+            GROUP BY url_full 
             ORDER BY $orderby 
-            LIMIT $offset, $per_page";
+            LIMIT %d, %d";
             
-    $results = $wpdb->get_results($sql);
-
-    $count_sql = "SELECT COUNT(*) FROM $table WHERE $where_sql";
-    $total = $wpdb->get_var($count_sql);
-    $max_pages = ceil($total / $per_page);
+    $prepare_values[] = $offset; $prepare_values[] = $per_page;
+    $results = $wpdb->get_results( $wpdb->prepare($sql, $prepare_values) );
 
     $posts = [];
     foreach ($results as $row) {
         $p = new stdClass();
-        $p->ID = $row->attachment_id;
-        $p->post_title = $row->title;
-        $p->post_excerpt = $row->caption;
-        $p->post_mime_type = $row->mime;
-        $p->type = $row->media_type;
-        $p->blog_id = $row->blog_id;
+        $p->ID = $row->attachment_id; $p->post_title = $row->title; $p->post_excerpt = $row->caption;
+        $p->post_mime_type = $row->mime; $p->type = $row->media_type; $p->blog_id = $row->blog_id;
 
         if ($row->media_type === 'video' || $row->media_type === 'audio') {
             $p->tbf_url_full = $row->content_url ?: $row->url_full;
             $p->tbf_url_thumb = $row->poster_url ?: $row->url_thumb;
-            
             if (empty($p->tbf_url_thumb)) {
                 $icon = ($row->media_type === 'video') ? 'video.png' : 'audio.png';
                 $p->tbf_url_thumb = includes_url('images/media/' . $icon);
             }
         } else {
-            $p->tbf_url_full   = $row->url_full;
-            $p->tbf_url_thumb  = $row->url_medium ?: $row->url_thumb;
+            $p->tbf_url_full = $row->url_full; $p->tbf_url_thumb = $row->url_medium ?: $row->url_thumb;
             if ( empty($p->tbf_url_thumb) ) $p->tbf_url_thumb = $row->url_full;
         }
 
-        $p->tbf_width      = (int)$row->width;
-        $p->tbf_height     = (int)$row->height;
-        $posts[] = $p;
+        $p->tbf_width = (int)$row->width; $p->tbf_height = (int)$row->height; $posts[] = $p;
     }
-
     return ['posts' => $posts, 'max_pages' => $max_pages];
   }
 }

@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfnmi-photofall-templates.php
- * Version: 6.0.6 (Unique Site Permalinks)
+ * Version: 6.2.3 (Late Escaping & Prefixes)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -32,7 +32,7 @@ class TBFNMI_Photofall_Templates {
                 <div class="tbf-filter-group">
                     <button type="submit" name="tbf_filter" value="all" class="tbf-btn <?php echo $current_args['filter'] === 'all' ? 'active' : ''; ?>">All</button>
                     <?php foreach($settings['allowed_types'] as $t): ?>
-                        <button type="submit" name="tbf_filter" value="<?php echo esc_attr($t); ?>" class="tbf-btn <?php echo $current_args['filter'] === $t ? 'active' : ''; ?>"><?php echo ucfirst($t); ?>s</button>
+                        <button type="submit" name="tbf_filter" value="<?php echo esc_attr($t); ?>" class="tbf-btn <?php echo $current_args['filter'] === $t ? 'active' : ''; ?>"><?php echo esc_html(ucfirst($t)); ?>s</button>
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
@@ -41,6 +41,12 @@ class TBFNMI_Photofall_Templates {
         </div>
 
         <div class="tbf-toolbar-secondary">
+            <select name="tbf_source" class="tbf-auto-submit">
+                <option value="all" <?php selected($current_args['source'], 'all'); ?>>All Uploads</option>
+                <option value="frontend" <?php selected($current_args['source'], 'frontend'); ?>>Frontend (Vikinger)</option>
+                <option value="backend" <?php selected($current_args['source'], 'backend'); ?>>Backend (WP Library)</option>
+            </select>
+
             <?php if (!empty($settings['show_filter_year']) && !empty($filter_options['years'])): ?>
                 <select name="tbf_year" class="tbf-auto-submit">
                     <option value="">Any Year</option>
@@ -100,25 +106,25 @@ class TBFNMI_Photofall_Templates {
       self::enqueue_assets(1, ['sort' => $settings['default_sort']]);
       get_header();
       
-      $url_full = $item->tbf_url_full; // We now use the exact URL from the Indexer
+      $url_full = $item->tbf_url_full; 
       $type = $item->type;
 
       ?>
       <div class="tbf-photofall-wrapper tbf-single-view">
           <div class="tbf-single-header">
-              <a href="<?php echo home_url('/photo/'); ?>" class="tbf-btn">&larr; Back to Gallery</a>
+              <a href="<?php echo esc_url(home_url('/photo/')); ?>" class="tbf-btn">&larr; Back to Gallery</a>
           </div>
           <div class="tbf-single-stage">
               <?php if ($type === 'video'): ?>
                   <video src="<?php echo esc_url($url_full); ?>" controls class="tbf-single-media"></video>
               <?php elseif ($type === 'audio'): ?>
                   <div style="background:#fff; padding:40px; border-radius:12px; display:inline-block; max-width:100%; border:1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                      <img src="<?php echo includes_url('images/media/audio.png'); ?>" style="width:100px; height:auto; margin-bottom:20px;">
+                      <img src="<?php echo esc_url(includes_url('images/media/audio.png')); ?>" style="width:100px; height:auto; margin-bottom:20px;" alt="Audio File">
                       <audio src="<?php echo esc_url($url_full); ?>" controls style="width:100%; min-width:300px;"></audio>
                   </div>
               <?php else: ?>
                   <img src="<?php echo esc_url($url_full); ?>" class="tbf-single-media" decoding="async"
-                       onclick="TBF_Photofall.openRaw('<?php echo esc_url($url_full); ?>', 'image', '<?php echo esc_attr($item->post_title); ?>')">
+                       onclick="tbfnmi_photofall.openRaw('<?php echo esc_url($url_full); ?>', 'image', '<?php echo esc_attr($item->post_title); ?>')">
               <?php endif; ?>
               
               <div class="tbf-single-info">
@@ -149,18 +155,16 @@ class TBFNMI_Photofall_Templates {
       $style_ar = "aspect-ratio: {$w} / {$h};";
       
       $type = $post->type ?? 'image';
-      
-      // NEW PERMALINK STRUCTURE: /photo/image/3-67899/
       $permalink = home_url('/photo/' . $type . '/' . $post->blog_id . '-' . $post->ID . '/');
       $caption = esc_attr($post->post_excerpt ?: $post->post_title);
       
       ob_start();
       ?>
-      <div class="tbf-grid-item type-<?php echo $type; ?>">
+      <div class="tbf-grid-item type-<?php echo esc_attr($type); ?>">
         <div class="tbf-media-card">
             <?php if ($type === 'video'): ?><div class="tbf-video-badge">▶</div><?php endif; ?>
             <?php if ($type === 'audio'): ?><div class="tbf-video-badge" style="background:#2271b1;">🎵</div><?php endif; ?>
-            <img src="<?php echo esc_url($src); ?>" width="<?php echo (int)$w; ?>" height="<?php echo (int)$h; ?>" style="<?php echo $style_ar; ?>" loading="lazy" decoding="async" class="tbf-photofall-img" data-id="<?php echo $post->ID; ?>" data-full="<?php echo esc_url($url_full); ?>" data-type="<?php echo $type; ?>" data-permalink="<?php echo esc_url($permalink); ?>" data-caption="<?php echo $caption; ?>" onclick="TBF_Photofall.open(this)">
+            <img src="<?php echo esc_url($src); ?>" width="<?php echo (int)$w; ?>" height="<?php echo (int)$h; ?>" style="<?php echo esc_attr($style_ar); ?>" loading="lazy" decoding="async" class="tbf-photofall-img" data-id="<?php echo esc_attr($post->ID); ?>" data-full="<?php echo esc_url($url_full); ?>" data-type="<?php echo esc_attr($type); ?>" data-permalink="<?php echo esc_url($permalink); ?>" data-caption="<?php echo esc_attr($caption); ?>" onclick="tbfnmi_photofall.open(this)">
             <div class="tbf-caption"><?php echo esc_html($post->post_excerpt ?: $post->post_title); ?></div>
         </div>
       </div>
@@ -172,7 +176,7 @@ class TBFNMI_Photofall_Templates {
       <div id="tbf-lightbox" class="tbf-lightbox">
         <span class="tbf-close">&times;</span>
         <div class="tbf-lightbox-content">
-            <img id="tbf-lb-img" src="">
+            <img id="tbf-lb-img" src="" alt="Lightbox Media">
             <video id="tbf-lb-video" controls style="display:none"></video>
             <audio id="tbf-lb-audio" controls style="display:none; width:80%; max-width:500px;"></audio>
             <div class="tbf-lb-meta"><div id="tbf-lb-caption"></div><a id="tbf-lb-link" href="#" class="tbf-btn tbf-btn-sm">View Page</a></div>
@@ -188,13 +192,15 @@ class TBFNMI_Photofall_Templates {
       
       $includes_url = includes_url();
       
-      wp_localize_script('tbf-photofall', 'TBF_Data', [
+      // WP Scanner Fix: TBF_Data changed to tbfnmi_data
+      wp_localize_script('tbf-photofall', 'tbfnmi_data', [
           'ajax_url'    => admin_url('admin-ajax.php'),
           'nonce'       => wp_create_nonce('tbfnmi_frontend'),
           'includes_url'=> $includes_url,
           'max_pages'   => $max_pages,
           'current_page'=> 1,
           'filter'      => isset($current_args['filter']) ? $current_args['filter'] : 'all',
+          'source'      => isset($current_args['source']) ? $current_args['source'] : 'all',
           'sort'        => isset($current_args['sort']) ? $current_args['sort'] : '',
           'search'      => isset($current_args['search']) ? $current_args['search'] : '',
           'year'        => isset($current_args['year']) ? $current_args['year'] : '',

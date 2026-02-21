@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfnmi-photofall-router.php
- * Version: 6.0.6 (Unique Site Permalinks)
+ * Version: 6.2.3 (AJAX Security Validation)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -21,19 +21,23 @@ class TBFNMI_Photofall_Router {
   }
 
   public static function ajax_load_more() {
+      // Step 2 WP Fix: Enforce the nonce check strictly!
       check_ajax_referer('tbfnmi_frontend', 'nonce');
+      
       require_once TBFNMI_DIR . 'includes/photofall/class-tbfnmi-photofall-query.php';
       require_once TBFNMI_DIR . 'includes/photofall/class-tbfnmi-photofall-templates.php';
 
       $settings = TBFNMI_Subsite_Settings::get_options();
       
+      // Step 3 WP Fix: Strict validation on all $_POST data
       $args = [
           'allowed_types' => $settings['allowed_types'],
-          'sort'          => isset($_POST['sort']) ? sanitize_text_field($_POST['sort']) : $settings['default_sort'],
-          'filter'        => isset($_POST['filter']) ? sanitize_text_field($_POST['filter']) : 'all',
-          'search'        => isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '',
-          'year'          => isset($_POST['year']) ? sanitize_text_field($_POST['year']) : '',
-          'site_filter'   => isset($_POST['site_filter']) ? sanitize_text_field($_POST['site_filter']) : '',
+          'sort'          => isset($_POST['sort']) ? sanitize_text_field(wp_unslash($_POST['sort'])) : $settings['default_sort'],
+          'filter'        => isset($_POST['filter']) ? sanitize_text_field(wp_unslash($_POST['filter'])) : 'all',
+          'source'        => isset($_POST['source']) ? sanitize_text_field(wp_unslash($_POST['source'])) : 'all',
+          'search'        => isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '',
+          'year'          => isset($_POST['year']) ? sanitize_text_field(wp_unslash($_POST['year'])) : '',
+          'site_filter'   => isset($_POST['site_filter']) ? sanitize_text_field(wp_unslash($_POST['site_filter'])) : '',
           'page'          => isset($_POST['page']) ? (int)$_POST['page'] : 1,
           'per_page'      => 50
       ];
@@ -62,10 +66,9 @@ class TBFNMI_Photofall_Router {
 
         $settings = TBFNMI_Subsite_Settings::get_options();
         $single_id = get_query_var('pf_id');
-        $blog_id   = get_query_var('pf_blog_id'); // Extract Blog ID
+        $blog_id   = get_query_var('pf_blog_id');
 
         if ( $single_id ) {
-            // Pass BOTH ID and Blog ID
             $item = TBFNMI_Photofall_Query::get_single((int)$single_id, (int)$blog_id);
             if ( ! $item ) {
                 global $wp_query; $wp_query->set_404(); status_header(404); get_template_part(404); exit;
@@ -82,13 +85,15 @@ class TBFNMI_Photofall_Router {
             exit;
         }
 
+        // Step 2 WP Fix: Ensure $_GET filters are sanitized securely
         $args = [
             'allowed_types' => $settings['allowed_types'],
-            'sort'          => isset($_GET['tbf_sort']) ? sanitize_text_field($_GET['tbf_sort']) : $settings['default_sort'],
-            'filter'        => isset($_GET['tbf_filter']) ? sanitize_text_field($_GET['tbf_filter']) : 'all',
-            'search'        => isset($_GET['tbf_search']) ? sanitize_text_field($_GET['tbf_search']) : '',
-            'year'          => isset($_GET['tbf_year']) ? sanitize_text_field($_GET['tbf_year']) : '',
-            'site_filter'   => isset($_GET['tbf_site']) ? sanitize_text_field($_GET['tbf_site']) : '',
+            'sort'          => isset($_GET['tbf_sort']) ? sanitize_text_field(wp_unslash($_GET['tbf_sort'])) : $settings['default_sort'],
+            'filter'        => isset($_GET['tbf_filter']) ? sanitize_text_field(wp_unslash($_GET['tbf_filter'])) : 'all',
+            'source'        => isset($_GET['tbf_source']) ? sanitize_text_field(wp_unslash($_GET['tbf_source'])) : 'all',
+            'search'        => isset($_GET['tbf_search']) ? sanitize_text_field(wp_unslash($_GET['tbf_search'])) : '',
+            'year'          => isset($_GET['tbf_year']) ? sanitize_text_field(wp_unslash($_GET['tbf_year'])) : '',
+            'site_filter'   => isset($_GET['tbf_site']) ? sanitize_text_field(wp_unslash($_GET['tbf_site'])) : '',
             'page'          => 1
         ];
 
@@ -101,13 +106,8 @@ class TBFNMI_Photofall_Router {
   }
 
   public static function add_rewrite_rules() {
-    // 1. New Structure: /photo/image/3-67899/ (Includes Blog ID)
     add_rewrite_rule('^photo/(image|video|audio)/(\d+)-(\d+)/?$', 'index.php?' . self::REWRITE_TAG . '=1&pf_type=$matches[1]&pf_blog_id=$matches[2]&pf_id=$matches[3]', 'top');
-    
-    // 2. Fallback for Old Links: /photo/image/67899/
     add_rewrite_rule('^photo/(image|video|audio)/(\d+)/?$', 'index.php?' . self::REWRITE_TAG . '=1&pf_type=$matches[1]&pf_id=$matches[2]', 'top');
-    
-    // 3. Main Archive: /photo/
     add_rewrite_rule('^photo/?$', 'index.php?' . self::REWRITE_TAG . '=1', 'top');
   }
 
@@ -115,7 +115,7 @@ class TBFNMI_Photofall_Router {
     $vars[] = self::REWRITE_TAG; 
     $vars[] = 'pf_id'; 
     $vars[] = 'pf_type'; 
-    $vars[] = 'pf_blog_id'; // Allow WP to extract this variable
+    $vars[] = 'pf_blog_id'; 
     return $vars;
   }
 

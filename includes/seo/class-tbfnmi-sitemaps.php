@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/seo/class-tbfnmi-sitemaps.php
- * Version: 4.0.0
+ * Version: 6.2.7 (Late Escaping XML Dates)
  */
 if ( ! defined('ABSPATH') ) exit;
 
@@ -53,8 +53,9 @@ class TBFNMI_Sitemaps {
     for ($i=1;$i<=$pages;$i++){
       $loc = esc_url($base . $type . "-sitemap-{$i}.xml");
       echo "  <sitemap>\n";
-      echo "    <loc>{$loc}</loc>\n";
-      echo "    <lastmod>{$now}</lastmod>\n";
+      echo "    <loc>" . esc_url($loc) . "</loc>\n";
+      // LATE ESCAPING FIX: esc_html applied directly at output
+      echo "    <lastmod>" . esc_html($now) . "</lastmod>\n";
       echo "  </sitemap>\n";
     }
     echo "</sitemapindex>\n";
@@ -93,12 +94,15 @@ class TBFNMI_Sitemaps {
     foreach ($rows as $r) {
       $blogId = (int)$r['blog_id'];
       $attId  = (int)$r['attachment_id'];
-      $href = home_url('/' . trim(TBFNMI_PHOTOFALL_BASE, '/') . '/' . ($mediaType === 'video' ? 'v' : 'i') . "/{$blogId}/{$attId}/");
+      
+      // Use standard site URL to prevent missing constant errors
+      $href = home_url('/photo/' . ($mediaType === 'video' ? 'video' : 'image') . "/{$blogId}-{$attId}/");
       $lastmod = $r['created_gmt'] ? gmdate('c', strtotime($r['created_gmt'])) : gmdate('c');
 
       echo "  <url>\n";
       echo "    <loc>" . esc_url($href) . "</loc>\n";
-      echo "    <lastmod>{$lastmod}</lastmod>\n";
+      // LATE ESCAPING FIX: esc_html applied directly at output
+      echo "    <lastmod>" . esc_html($lastmod) . "</lastmod>\n";
 
       if ( $mediaType === 'image' ) {
         $img = $r['url_full'] ?: '';

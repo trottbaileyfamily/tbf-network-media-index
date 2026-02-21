@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/admin/class-tbfnmi-network-dashboard.php
- * Version: 6.1.1 (Complete UI with Vikinger Sync)
+ * Version: 6.2.6 (Enqueued Script Fixes)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -17,6 +17,38 @@ class TBFNMI_Network_Dashboard {
     add_action('network_admin_menu', [__CLASS__, 'register_menu']);
     add_action('network_admin_edit_tbfnmi_save', [__CLASS__, 'save_settings']);
     add_action('wp_ajax_tbfnmi_index_batch', [__CLASS__, 'ajax_index_batch']);
+    // Hook the new asset enqueue system
+    add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
+  }
+
+  public static function enqueue_assets($hook) {
+      // Ensure we only load this JS on our specific plugin dashboard page
+      if (strpos($hook, self::PAGE_SLUG) === false) return;
+
+      wp_enqueue_script(
+          'tbfnmi-admin-dashboard',
+          TBFNMI_URL . 'assets/js/admin-dashboard.js',
+          ['jquery'],
+          TBFNMI_VER,
+          true
+      );
+
+      // Gather the sites data to pass securely to Javascript
+      $raw_sites = get_sites(['number' => 500]); 
+      $sites_data = [];
+      foreach($raw_sites as $s) {
+          $sites_data[] = [
+              'id'   => $s->blog_id,
+              'name' => get_blog_option($s->blog_id, 'blogname') ?: 'Site ' . $s->blog_id
+          ];
+      }
+
+      // Securely pass data to the JS file
+      wp_localize_script('tbfnmi-admin-dashboard', 'tbfnmi_dashboard_data', [
+          'ajaxurl' => admin_url('admin-ajax.php'),
+          'nonce'   => wp_create_nonce('tbfnmi_indexer_run'),
+          'sites'   => $sites_data
+      ]);
   }
 
   public static function register_menu() {
@@ -42,13 +74,13 @@ class TBFNMI_Network_Dashboard {
       <h1>TBF Network Media Index</h1>
       
       <nav class="nav-tab-wrapper">
-        <a href="?page=<?php echo self::PAGE_SLUG; ?>&tab=general" class="nav-tab <?php echo $tab === 'general' ? 'nav-tab-active' : ''; ?>">General Settings</a>
-        <a href="?page=<?php echo self::PAGE_SLUG; ?>&tab=photofall" class="nav-tab <?php echo $tab === 'photofall' ? 'nav-tab-active' : ''; ?>">Photofall Sites</a>
-        <a href="?page=<?php echo self::PAGE_SLUG; ?>&tab=buddypress" class="nav-tab <?php echo $tab === 'buddypress' ? 'nav-tab-active' : ''; ?>">Frontend Uploads</a>
-        <a href="?page=<?php echo self::PAGE_SLUG; ?>&tab=indexer" class="nav-tab <?php echo $tab === 'indexer' ? 'nav-tab-active' : ''; ?>">Indexer (Import)</a>
+        <a href="?page=<?php echo esc_attr(self::PAGE_SLUG); ?>&tab=general" class="nav-tab <?php echo $tab === 'general' ? 'nav-tab-active' : ''; ?>">General Settings</a>
+        <a href="?page=<?php echo esc_attr(self::PAGE_SLUG); ?>&tab=photofall" class="nav-tab <?php echo $tab === 'photofall' ? 'nav-tab-active' : ''; ?>">Photofall Sites</a>
+        <a href="?page=<?php echo esc_attr(self::PAGE_SLUG); ?>&tab=buddypress" class="nav-tab <?php echo $tab === 'buddypress' ? 'nav-tab-active' : ''; ?>">Frontend Uploads</a>
+        <a href="?page=<?php echo esc_attr(self::PAGE_SLUG); ?>&tab=indexer" class="nav-tab <?php echo $tab === 'indexer' ? 'nav-tab-active' : ''; ?>">Indexer (Import)</a>
       </nav>
 
-      <form method="post" action="<?php echo network_admin_url('edit.php?action=tbfnmi_save'); ?>">
+      <form method="post" action="<?php echo esc_url(network_admin_url('edit.php?action=tbfnmi_save')); ?>">
         <?php wp_nonce_field('tbfnmi_save'); ?>
         <input type="hidden" name="tab" value="<?php echo esc_attr($tab); ?>">
 
@@ -118,14 +150,13 @@ class TBFNMI_Network_Dashboard {
         <tbody>
             <?php foreach ( $sites as $site ): ?>
             <tr>
-                <td><input type="checkbox" name="enabled_sites[]" value="<?php echo $site->blog_id; ?>" <?php checked(in_array($site->blog_id, $enabled)); ?>></td>
-                <td><strong><?php echo get_blog_option($site->blog_id, 'blogname'); ?></strong></td>
-                <td><?php echo $site->path; ?></td>
+                <td><input type="checkbox" name="enabled_sites[]" value="<?php echo esc_attr($site->blog_id); ?>" <?php checked(in_array($site->blog_id, $enabled)); ?>></td>
+                <td><strong><?php echo esc_html(get_blog_option($site->blog_id, 'blogname')); ?></strong></td>
+                <td><?php echo esc_html($site->path); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
-    <script>document.getElementById('cb-select-all-1').addEventListener('change', function(e) { var c = document.querySelectorAll('input[name="enabled_sites[]"]'); for (var i = 0; i < c.length; i++) c[i].checked = e.target.checked; });</script>
     <?php
   }
 
@@ -164,14 +195,7 @@ class TBFNMI_Network_Dashboard {
   }
 
   private static function render_indexer_tab() {
-      $raw_sites = get_sites(['number' => 500]); 
-      $sites_data = [];
-      foreach($raw_sites as $s) {
-          $sites_data[] = [
-              'id'   => $s->blog_id,
-              'name' => get_blog_option($s->blog_id, 'blogname') ?: 'Site ' . $s->blog_id
-          ];
-      }
+      // Inline JS removed and migrated to assets/js/admin-dashboard.js
       ?>
       <h3>Network Batch Indexer & Integrations</h3>
       <p>Scan the network in real-time. This tool processes images in small batches so your server won't crash.</p>
@@ -202,152 +226,6 @@ class TBFNMI_Network_Dashboard {
 
           </div>
       </div>
-
-      <script>
-      (function($) {
-          var sites = <?php echo json_encode($sites_data); ?>;
-          var totalSites = sites.length;
-          var currentSiteIdx = 0;
-          var currentLastId = 0;
-          var totalIndexed = 0;
-          var nonce = '<?php echo wp_create_nonce("tbfnmi_indexer_run"); ?>';
-          var $log = $('#log-list');
-
-          function logMsg(msg, color) {
-              color = color || '#00ff00';
-              $log.append('<li style="color:' + color + ';">> ' + msg + '</li>');
-              $log.scrollTop($log[0].scrollHeight);
-          }
-
-          // --- VIKINGER SYNC LOGIC (Chunked) ---
-          $('#sync-vikinger').on('click', function() {
-              $(this).prop('disabled', true).text('Syncing...');
-              $('#start-indexing').prop('disabled', true);
-              $('#index-progress').slideDown();
-              
-              logMsg('=================================', '#e0a800');
-              logMsg('INITIATING VIKINGER BRIDGE SYNC...', '#e0a800');
-              
-              var syncIdx = 0;
-              
-              function syncNextSite() {
-                  if (syncIdx >= totalSites) {
-                      logMsg('Vikinger Sync Complete! You can now run the Full Network Index.', '#e0a800');
-                      $('#sync-vikinger').prop('disabled', false).text('Sync Vikinger Frontend Uploads');
-                      $('#start-indexing').prop('disabled', false);
-                      return;
-                  }
-                  
-                  var site = sites[syncIdx];
-                  logMsg('Checking Site ' + site.id + ' for Vikinger uploads...', '#aaa');
-                  
-                  function syncChunk(offset) {
-                      $.post(ajaxurl, { 
-                          action: 'tbfnmi_sync_vikinger', 
-                          nonce: nonce, 
-                          blog_id: site.id,
-                          offset: offset
-                      }).done(function(res) {
-                          if(res.success) {
-                              if(res.data.synced > 0) {
-                                  logMsg('SUCCESS: Bridged ' + res.data.synced + ' files (Processed ' + Math.min(res.data.next_offset, res.data.total) + '/' + res.data.total + ') on Site ' + site.id);
-                              }
-                              
-                              if (res.data.done) {
-                                  syncIdx++;
-                                  setTimeout(syncNextSite, 200);
-                              } else {
-                                  // Call next chunk!
-                                  setTimeout(function() { syncChunk(res.data.next_offset); }, 200);
-                              }
-                          } else {
-                              logMsg('Server rejected the request on Site ' + site.id, 'red');
-                              syncIdx++;
-                              setTimeout(syncNextSite, 200);
-                          }
-                      }).fail(function() {
-                          logMsg('Timeout on Site ' + site.id + '. Trying to resume...', '#e0a800');
-                          setTimeout(function() { syncChunk(offset); }, 2000); // Retry the exact same chunk
-                      });
-                  }
-                  
-                  syncChunk(0); // Start at offset 0
-              }
-              syncNextSite();
-          });
-
-          // --- NORMAL INDEXER LOGIC ---
-          $('#start-indexing').on('click', function() {
-              $(this).prop('disabled', true).text('Indexing in Progress...');
-              $('#sync-vikinger').prop('disabled', true);
-              $('#index-progress').slideDown();
-              logMsg('Initiating Network Scan...');
-              
-              currentSiteIdx = 0;
-              currentLastId = 0;
-              totalIndexed = 0;
-              $('#stat-total-indexed').text('0');
-              
-              processBatch();
-          });
-
-          function processBatch() {
-              if (currentSiteIdx >= totalSites) {
-                  logMsg('=================================', '#fff');
-                  logMsg('INDEXING COMPLETE!', '#fff');
-                  logMsg('Total Media Files Indexed: ' + totalIndexed, '#fff');
-                  $('#progress-bar').css('width', '100%');
-                  $('#stat-progress').text('100%');
-                  $('#stat-site').text('Complete');
-                  $('#start-indexing').prop('disabled', false).text('Re-Run Indexer');
-                  $('#sync-vikinger').prop('disabled', false);
-                  return;
-              }
-
-              var site = sites[currentSiteIdx];
-              var pct = Math.round((currentSiteIdx / totalSites) * 100);
-              $('#progress-bar').css('width', pct + '%');
-              $('#stat-progress').text(pct + '%');
-              $('#stat-site').text(site.name);
-
-              if (currentLastId === 0) logMsg('Connecting to Site ID ' + site.id + ' (' + site.name + ')...', '#aaa');
-
-              $.post(ajaxurl, { 
-                  action: 'tbfnmi_index_batch', 
-                  nonce: nonce, 
-                  blog_id: site.id,
-                  start_after: currentLastId
-              }).done(function(res) {
-                  if(res.success) {
-                      var data = res.data;
-                      if (data.scanned > 0) {
-                          totalIndexed += data.indexed;
-                          $('#stat-total-indexed').text(totalIndexed);
-                          logMsg('Scanned ' + data.scanned + ' items. Found & Indexed ' + data.indexed + ' valid media files.');
-                      }
-
-                      if (data.done) {
-                          logMsg('Finished Site ID ' + site.id + '.', '#aaa');
-                          currentSiteIdx++;
-                          currentLastId = 0; 
-                      } else {
-                          currentLastId = data.last_id; 
-                      }
-                  } else {
-                      logMsg('Error on Site ' + site.id + ': ' + (res.data ? res.data.error : 'Unknown'), 'red');
-                      currentSiteIdx++;
-                      currentLastId = 0;
-                  }
-                  setTimeout(processBatch, 100);
-              }).fail(function() {
-                  logMsg('Server connection lost on Site ' + site.id + '. Skipping to next.', 'red');
-                  currentSiteIdx++;
-                  currentLastId = 0;
-                  setTimeout(processBatch, 500);
-              });
-          }
-      })(jQuery);
-      </script>
       <?php
   }
 
@@ -355,21 +233,35 @@ class TBFNMI_Network_Dashboard {
     check_admin_referer('tbfnmi_save');
     if ( ! current_user_can('manage_network_options') ) wp_die('Unauthorized');
     $tab = isset($_POST['tab']) ? sanitize_key($_POST['tab']) : 'general';
+    
     if ($tab === 'general') {
-        $settings = ['capability' => $_POST['settings']['capability'], 'insert_mode' => $_POST['settings']['insert_mode'], 'per_page' => (int)$_POST['settings']['per_page'], 'max_sites' => (int)$_POST['settings']['max_sites']];
+        $settings = [
+            'capability'  => isset($_POST['settings']['capability']) ? sanitize_text_field($_POST['settings']['capability']) : 'upload_files', 
+            'insert_mode' => isset($_POST['settings']['insert_mode']) ? sanitize_text_field($_POST['settings']['insert_mode']) : 'proxy', 
+            'per_page'    => isset($_POST['settings']['per_page']) ? (int)$_POST['settings']['per_page'] : 60, 
+            'max_sites'   => isset($_POST['settings']['max_sites']) ? (int)$_POST['settings']['max_sites'] : 5000
+        ];
         update_site_option(self::OPTION_GENERAL, $settings);
+        
     } elseif ($tab === 'photofall') {
-        update_site_option(self::OPTION_ENABLED_SITES, isset($_POST['enabled_sites']) ? array_map('intval', $_POST['enabled_sites']) : []);
+        $sites = isset($_POST['enabled_sites']) ? array_map('intval', wp_unslash($_POST['enabled_sites'])) : [];
+        update_site_option(self::OPTION_ENABLED_SITES, $sites);
+        
     } elseif ($tab === 'buddypress') {
-        $bp = ['enabled' => isset($_POST['bp_indexing_enabled']) ? 1 : 0, 'roles' => isset($_POST['bp_allowed_roles']) ? $_POST['bp_allowed_roles'] : []];
+        $roles = isset($_POST['bp_allowed_roles']) ? array_map('sanitize_text_field', wp_unslash($_POST['bp_allowed_roles'])) : [];
+        $bp = [
+            'enabled' => isset($_POST['bp_indexing_enabled']) ? 1 : 0, 
+            'roles'   => $roles
+        ];
         update_site_option(self::OPTION_BP_SETTINGS, $bp);
     }
+    
     wp_redirect(add_query_arg(['page' => self::PAGE_SLUG, 'tab' => $tab, 'updated' => 'true'], network_admin_url('admin.php')));
     exit;
   }
 
   public static function ajax_index_batch() {
-      check_ajax_referer('tbf_indexer_run', 'nonce');
+      check_ajax_referer('tbfnmi_indexer_run', 'nonce');
       if ( ! current_user_can('manage_network_options') ) wp_send_json_error('Unauthorized');
       
       $blog_id = isset($_POST['blog_id']) ? (int)$_POST['blog_id'] : 0;
