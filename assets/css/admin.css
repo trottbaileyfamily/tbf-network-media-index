@@ -1,98 +1,56 @@
-/* =========================================================
-   TBF Network Media Index - Admin Styles
-   File: assets/css/admin.css
-   Version: 1.0.21
-   Fix: Tiny thumbnails in media modal + keep selection UI
-   ========================================================= */
+/* TBFNMI Network Media Modal Visual Enhancements (v6.3.1) */
 
-/* Container */
-.tbfnmi-view{
-  position:absolute;
-  top:0; left:0; right:0; bottom:0;
-  display:flex !important;
-  flex-direction:column !important;
-  background:#f0f0f1;
+/* Portrait Image Fix - Ensure images maintain aspect ratio */
+.tbfnmi-view .attachment-preview .thumbnail .centered.tbf-portrait-fix img {
+    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    background: #f0f0f1;
 }
 
-/* Toolbar */
-.tbfnmi-toolbar{
-  padding:10px 20px;
-  border-bottom:1px solid #ccd0d4;
-  background:#fff;
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  align-items:center;
+/* Audio & Video Native Icon Styling */
+.tbfnmi-view .attachment-preview .thumbnail .centered.tbf-audio-icon-wrap,
+.tbfnmi-view .attachment-preview .thumbnail .centered.tbf-video-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f1;
+    width: 100%;
+    height: 100%;
 }
 
-/* Grid */
-.tbfnmi-grid{
-  display:flex !important;
-  flex-wrap:wrap !important;
-  gap:12px !important;
-  padding:16px !important;
-  margin:0 !important;
-  list-style:none !important;
-  overflow:auto !important;
-  flex:1 1 auto !important;
+.tbfnmi-view .attachment-preview .thumbnail .centered .dashicons {
+    font-size: 60px;
+    width: 60px;
+    height: 60px;
+    color: #646970;
 }
 
-/* Tile size (this is what fixes “tiny images”) */
-.tbfnmi-item{
-  width:150px !important;
-  height:150px !important;
-  min-width:150px !important;
-  min-height:150px !important;
-  position:relative !important;
-  cursor:pointer;
+/* Ensure filenames are visible at the bottom of the thumbnail */
+.tbfnmi-view .attachment-preview .filename {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    word-wrap: break-word;
+    border-top: 1px solid #ddd;
+    /* Make sure it sits above the image but below the checkmark */
+    z-index: 1; 
 }
 
-/* WP-like card */
-.tbfnmi-item .attachment-preview{
-  width:150px !important;
-  height:150px !important;
-  position:relative !important;
-  overflow:hidden !important;
-  background:#fff;
-  border:1px solid #ccd0d4;
-  box-shadow:0 1px 1px rgba(0,0,0,.04);
+/* Adjust the checkmark position so it doesn't overlap the title */
+.tbfnmi-view .attachment-preview .check {
+    z-index: 10;
 }
 
-/* Thumbnail wrapper */
-.tbfnmi-item .thumbnail{
-  width:100% !important;
-  height:100% !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  overflow:hidden !important;
+/* Specific styling for audio/video types to ensure title visibility */
+.tbfnmi-view .attachment-preview.type-audio .filename,
+.tbfnmi-view .attachment-preview.type-video .filename {
+    background: #fff;
 }
-
-/* Force image fill */
-.tbfnmi-item .thumbnail img{
-  width:100% !important;
-  height:100% !important;
-  object-fit:cover !important;
-  display:block !important;
-}
-
-/* Hide filename so it doesn’t shrink the tile */
-.tbfnmi-item .filename{
-  display:none !important;
-}
-
-/* Hover highlight */
-.tbfnmi-item:hover .attachment-preview{
-  box-shadow:0 0 0 2px #2271b1;
-}
-
-/* Selected (keep your working blue selector) */
-.tbfnmi-item.is-selected .attachment-preview{
-  box-shadow:0 0 0 4px #2271b1;
-}
-
-/* File: assets/css/admin.css | Version: 2.1.0 */
-.tbfnmi-grid .attachment .check { display:block !important; opacity:0; }
-.tbfnmi-grid .attachment.is-selected .check { opacity:1; }
-.tbfnmi-grid .attachment.is-selected .check .media-modal-icon:before { opacity:1; }
-

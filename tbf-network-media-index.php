@@ -3,7 +3,7 @@
  * Plugin Name:       TBF Network Media Index
  * Plugin URI:        https://trottbaileyfamily.com/tbf-network-media-index
  * Description:       Browse and insert media from any site in a multisite network. Includes "Photofall" - a Pinterest-style media feed.
- * Version:           6.3.0
+ * Version:           6.4.9.4
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Sherika Trott Bailey, Kimroy Bailey, David Luis
@@ -14,7 +14,7 @@
 
 if ( ! defined('ABSPATH') ) exit;
 
-define('TBFNMI_VER', '6.3.0');
+define('TBFNMI_VER', '6.4.9.4');
 define('TBFNMI_DIR', plugin_dir_path(__FILE__));
 define('TBFNMI_URL', plugin_dir_url(__FILE__));
 
@@ -26,14 +26,15 @@ require_once TBFNMI_DIR . 'includes/class-tbfnmi-placeholder.php';
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-featured-media.php';
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-visibility.php';
 require_once TBFNMI_DIR . 'includes/indexer/class-tbfnmi-indexer.php';
+require_once TBFNMI_DIR . 'includes/class-tbfnmi-gutenberg.php'; // Inject Gutenberg Sidebar
 
 TBFNMI_Proxy::init();
 TBFNMI_Featured_Media::register();
 TBFNMI_Visibility::init();
 TBFNMI_Admin::init();
 TBFNMI_AJAX::init();
+TBFNMI_Gutenberg::init(); // Initialize Gutenberg Sidebar
 
-// PREFIX FIX: Class renamed to strictly use TBFNMI_
 class TBFNMI_Network_Media_Index {
 
   public static function init() {
@@ -106,12 +107,12 @@ class TBFNMI_Network_Media_Index {
     
     $s = get_option('tbfnmi_settings', ['per_page' => 60, 'max_sites' => 5000]);
     
-    // PREFIX FIX: Replaced TBF_NMI with tbfnmi_modal_data
     wp_localize_script('tbfnmi-modal', 'tbfnmi_modal_data', [
       'ajax'        => admin_url('admin-ajax.php'),
       'nonce'       => wp_create_nonce('tbfnmi_nonce'),
       'perPage'     => (int)($s['per_page'] ?? 60),
       'maxSites'    => (int)($s['max_sites'] ?? 5000),
+      'placeholderId' => (int) get_option('tbfnmi_placeholder_id', 0)
     ]);
   }
 
