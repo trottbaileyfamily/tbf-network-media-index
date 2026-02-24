@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfnmi-photofall-templates.php
- * Version: 6.2.3 (Late Escaping & Prefixes)
+ * Version: 6.5.0 (Strict Late Escaping & KSES Output)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -30,9 +30,9 @@ class TBFNMI_Photofall_Templates {
 
             <?php if (!empty($settings['show_filter_type'])): ?>
                 <div class="tbf-filter-group">
-                    <button type="submit" name="tbf_filter" value="all" class="tbf-btn <?php echo $current_args['filter'] === 'all' ? 'active' : ''; ?>">All</button>
+                    <button type="submit" name="tbf_filter" value="all" class="tbf-btn <?php echo esc_attr($current_args['filter'] === 'all' ? 'active' : ''); ?>">All</button>
                     <?php foreach($settings['allowed_types'] as $t): ?>
-                        <button type="submit" name="tbf_filter" value="<?php echo esc_attr($t); ?>" class="tbf-btn <?php echo $current_args['filter'] === $t ? 'active' : ''; ?>"><?php echo esc_html(ucfirst($t)); ?>s</button>
+                        <button type="submit" name="tbf_filter" value="<?php echo esc_attr($t); ?>" class="tbf-btn <?php echo esc_attr($current_args['filter'] === $t ? 'active' : ''); ?>"><?php echo esc_html(ucfirst($t)); ?>s</button>
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
@@ -87,7 +87,7 @@ class TBFNMI_Photofall_Templates {
                 <a href="<?php echo esc_url(home_url('/photo/')); ?>" class="tbf-btn">Clear All Filters</a>
             </div>
         <?php else: ?>
-            <?php foreach ($media as $item): echo self::get_item_html($item); endforeach; ?>
+            <?php foreach ($media as $item): echo wp_kses(self::get_item_html($item), self::get_allowed_html()); endforeach; ?>
         <?php endif; ?>
       </div>
 
@@ -135,12 +135,27 @@ class TBFNMI_Photofall_Templates {
           <?php if (!empty($related)): ?>
               <h3 class="tbf-related-title">Related Media</h3>
               <div class="tbf-photofall-grid caption-mode-<?php echo esc_attr($settings['caption_mode']); ?>">
-                  <?php foreach ($related as $rel_item): echo self::get_item_html($rel_item); endforeach; ?>
+                  <?php foreach ($related as $rel_item): echo wp_kses(self::get_item_html($rel_item), self::get_allowed_html()); endforeach; ?>
               </div>
           <?php endif; ?>
       </div>
       <?php self::render_lightbox_markup(); ?>
       <?php get_footer();
+  }
+
+  public static function get_allowed_html() {
+      return [
+          'div'  => ['class' => true, 'style' => true],
+          'span' => ['class' => true, 'style' => true],
+          'img'  => [
+              'src' => true, 'width' => true, 'height' => true, 
+              'style' => true, 'loading' => true, 'decoding' => true, 
+              'class' => true, 'data-id' => true, 'data-full' => true, 
+              'data-type' => true, 'data-permalink' => true, 
+              'data-caption' => true, 'onclick' => true, 'alt' => true
+          ],
+          'a'    => ['href' => true, 'class' => true, 'target' => true, 'rel' => true]
+      ];
   }
 
   public static function get_item_html($post) {
@@ -192,7 +207,6 @@ class TBFNMI_Photofall_Templates {
       
       $includes_url = includes_url();
       
-      // WP Scanner Fix: TBF_Data changed to tbfnmi_data
       wp_localize_script('tbf-photofall', 'tbfnmi_data', [
           'ajax_url'    => admin_url('admin-ajax.php'),
           'nonce'       => wp_create_nonce('tbfnmi_frontend'),

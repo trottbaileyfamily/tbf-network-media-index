@@ -1,7 +1,7 @@
 <?php
 /**
  * File: templates/photofall-video.php
- * Version: 4.0.0
+ * Version: 6.5.0 (Strict Late Escaping)
  *
  * Photofall Video Detail Page
  */
@@ -14,13 +14,11 @@ $q = new TBFNMI_PhotoFall_Query();
 $item = $q->get_item($blogId, $attId);
 
 if ( ! $item ) {
-  echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap"><p>Video not found.</p></div></div>';
+  echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap"><p>' . esc_html__('Video not found.', 'tbf-network-media-index') . '</p></div></div>';
   return;
 }
 
-$title   = esc_html($item['title']);
-$cap     = esc_html($item['caption']);
-$poster  = esc_url($item['poster_url'] ?: $item['thumb_url']);
+$poster  = (string)($item['poster_url'] ?: $item['thumb_url']);
 $content = (string)($item['content_url'] ?? '');
 $embed   = (string)($item['embed_url'] ?? '');
 
@@ -28,33 +26,33 @@ echo '<div class="tbf-photofall tbf-photofall--detail"><div class="tbf-photofall
 echo '<article class="tbf-photofall__detail">';
 
 echo '<header class="tbf-photofall__header">';
-echo '<h1 class="tbf-photofall__title">' . $title . '</h1>';
+echo '<h1 class="tbf-photofall__title">' . esc_html((string)($item['title'] ?? '')) . '</h1>';
 echo '</header>';
 
 echo '<section class="tbf-photofall__player">';
 
 if ( $content ) {
-  echo '<video class="tbf-photofall__video" controls preload="metadata" poster="' . $poster . '">';
+  echo '<video class="tbf-photofall__video" controls preload="metadata" poster="' . esc_url($poster) . '">';
   echo '<source src="' . esc_url($content) . '" />';
-  echo 'Your browser does not support the video tag.';
+  echo esc_html__('Your browser does not support the video tag.', 'tbf-network-media-index');
   echo '</video>';
 } elseif ( $embed ) {
   echo '<div class="tbf-photofall__embed">';
   echo '<iframe src="' . esc_url($embed) . '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>';
   echo '</div>';
 } else {
-  echo '<div class="tbf-photofall__empty"><p>No playable source found for this video.</p></div>';
+  echo '<div class="tbf-photofall__empty"><p>' . esc_html__('No playable source found for this video.', 'tbf-network-media-index') . '</p></div>';
 }
 
 echo '</section>';
 
-if ( $cap ) {
-  echo '<p class="tbf-photofall__intro" style="margin-top:12px;">' . $cap . '</p>';
+if ( !empty($item['caption']) ) {
+  echo '<p class="tbf-photofall__intro" style="margin-top:12px;">' . esc_html((string)($item['caption'] ?? '')) . '</p>';
 }
 
 echo '<dl class="tbf-photofall__facts">';
-echo '<div><dt>Uploaded</dt><dd>' . esc_html($item['created_gmt']) . '</dd></div>';
-echo '<div><dt>Provider</dt><dd>' . esc_html($item['provider']) . '</dd></div>';
+echo '<div><dt>Uploaded</dt><dd>' . esc_html((string)($item['created_gmt'] ?? '')) . '</dd></div>';
+echo '<div><dt>Provider</dt><dd>' . esc_html((string)($item['provider'] ?? '')) . '</dd></div>';
 echo '</dl>';
 
 $related = $q->related($blogId, $attId, 12);
@@ -63,11 +61,11 @@ if ($related) {
   echo '<h2>Related</h2>';
   echo '<div class="tbf-photofall__grid">';
   foreach ($related as $r) {
-    $href  = esc_url($r['href']);
-    $thumb = esc_url($r['thumb_url'] ?: $r['poster_url']);
+    $thumb = (string)($r['thumb_url'] ?: $r['poster_url']);
+    
     echo '<article class="tbf-pf-card">';
-    echo '<a class="tbf-pf-card__link" href="' . $href . '">';
-    echo '<img class="tbf-pf-card__img" src="' . $thumb . '" alt="" loading="lazy" />';
+    echo '<a class="tbf-pf-card__link" href="' . esc_url((string)($r['href'] ?? '')) . '">';
+    echo '<img class="tbf-pf-card__img" src="' . esc_url($thumb) . '" alt="" loading="lazy" />';
     if (($r['media_type'] ?? '') === 'video') {
       echo '<span class="tbf-pf-card__badge">▶</span>';
     }

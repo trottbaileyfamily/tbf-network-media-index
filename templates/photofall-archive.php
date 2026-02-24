@@ -1,7 +1,7 @@
 <?php
 /**
  * File: templates/photofall-archive.php
- * Version: 4.1.3
+ * Version: 6.5.0 (Strict Late Escaping)
  *
  * Photofall Archive (HTML-first for SEO)
  */
@@ -52,12 +52,12 @@ echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap">';
 echo '<header class="tbf-photofall__header">';
 echo '<div>';
 echo '<h1 class="tbf-photofall__title">' . esc_html($title) . '</h1>';
-echo '<p class="tbf-photofall__intro">Trott Bailey Family Photofall: images + videos across the network.</p>';
+echo '<p class="tbf-photofall__intro">' . esc_html__('Trott Bailey Family Photofall: images + videos across the network.', 'tbf-network-media-index') . '</p>';
 echo '</div>';
 
 echo '<div class="tbf-photofall__search" style="min-width:260px;">';
-echo '<label style="display:block; font-size:12px; opacity:.7; margin-bottom:6px;">Search</label>';
-echo '<input type="search" placeholder="Search titles, captions, alt text…" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.2);" />';
+echo '<label style="display:block; font-size:12px; opacity:.7; margin-bottom:6px;">' . esc_html__('Search', 'tbf-network-media-index') . '</label>';
+echo '<input type="search" placeholder="' . esc_attr__('Search titles, captions, alt text…', 'tbf-network-media-index') . '" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.2);" />';
 echo '</div>';
 
 echo '</header>';
@@ -66,25 +66,19 @@ echo '<main class="tbf-photofall__main">';
 echo '<div class="tbf-photofall__grid">';
 
 foreach ($items as $it) {
-  $href = esc_url($it['href']);
-
   $thumbRaw = (string)($it['thumb_url'] ?? '');
   if ($thumbRaw === '') $thumbRaw = (string)($it['poster_url'] ?? '');
   if ($thumbRaw === '') $thumbRaw = (string)($it['url_full'] ?? '');
   if ($thumbRaw === '' && $placeholderUrl) $thumbRaw = $placeholderUrl;
 
-  $thumb = esc_url($thumbRaw);
-  $tt    = esc_html((string)($it['title'] ?? ''));
-  $alt   = esc_attr((string)($it['alt'] ?? ''));
-
   echo '<article class="tbf-pf-card">';
-  echo '<a class="tbf-pf-card__link" href="' . $href . '">';
-  echo '<img class="tbf-pf-card__img" src="' . $thumb . '" alt="' . $alt . '" loading="lazy" />';
+  echo '<a class="tbf-pf-card__link" href="' . esc_url($it['href']) . '">';
+  echo '<img class="tbf-pf-card__img" src="' . esc_url($thumbRaw) . '" alt="' . esc_attr((string)($it['alt'] ?? '')) . '" loading="lazy" />';
   if (($it['media_type'] ?? '') === 'video') {
     echo '<span class="tbf-pf-card__badge">▶</span>';
   }
   echo '</a>';
-  echo '<h2 class="tbf-pf-card__title"><a href="' . $href . '">' . $tt . '</a></h2>';
+  echo '<h2 class="tbf-pf-card__title"><a href="' . esc_url($it['href']) . '">' . esc_html((string)($it['title'] ?? '')) . '</a></h2>';
   echo '</article>';
 }
 

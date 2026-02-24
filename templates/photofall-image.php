@@ -1,7 +1,7 @@
 <?php
 /**
  * File: templates/photofall-image.php
- * Version: 4.1.2
+ * Version: 6.5.0 (Strict Late Escaping)
  *
  * Photofall Image Detail Page
  */
@@ -14,30 +14,26 @@ $q    = new TBFNMI_PhotoFall_Query();
 $item = $q->get_item($blogId, $attId);
 
 if ( ! $item ) {
-  echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap"><p>Image not found.</p></div></div>';
+  echo '<div class="tbf-photofall"><div class="tbf-photofall__wrap"><p>' . esc_html__('Image not found.', 'tbf-network-media-index') . '</p></div></div>';
   return;
 }
 
-$title = esc_html((string) ($item['title'] ?? ''));
-$cap   = esc_html((string) ($item['caption'] ?? ''));
-$alt   = esc_attr((string) ($item['alt'] ?? ''));
-
-$full   = esc_url((string) ($item['url_full'] ?? ''));
-$medium = esc_url((string) ($item['url_medium'] ?? ''));
+$full   = (string) ($item['url_full'] ?? '');
+$medium = (string) ($item['url_medium'] ?? '');
 $src    = $medium ?: $full;
 
 echo '<div class="tbf-photofall tbf-photofall--detail"><div class="tbf-photofall__wrap">';
 echo '<article class="tbf-photofall__detail">';
 
 echo '<header class="tbf-photofall__header">';
-echo '<h1 class="tbf-photofall__title">' . $title . '</h1>';
+echo '<h1 class="tbf-photofall__title">' . esc_html((string) ($item['title'] ?? '')) . '</h1>';
 echo '</header>';
 
 echo '<figure class="tbf-photofall__figure">';
-echo '<a class="tbf-photofall__full-link" href="' . $full . '" target="_blank" rel="noopener">';
-echo '<img class="tbf-photofall__full tbf-pf-detail__img" src="' . $src . '" alt="' . $alt . '" loading="eager" decoding="async" />';
+echo '<a class="tbf-photofall__full-link" href="' . esc_url($full) . '" target="_blank" rel="noopener">';
+echo '<img class="tbf-photofall__full tbf-pf-detail__img" src="' . esc_url($src) . '" alt="' . esc_attr((string) ($item['alt'] ?? '')) . '" loading="eager" decoding="async" />';
 echo '</a>';
-if ( $cap ) echo '<figcaption class="tbf-photofall__caption">' . $cap . '</figcaption>';
+if ( !empty($item['caption']) ) echo '<figcaption class="tbf-photofall__caption">' . esc_html((string) ($item['caption'] ?? '')) . '</figcaption>';
 echo '</figure>';
 
 echo '<dl class="tbf-photofall__facts">';
@@ -52,19 +48,15 @@ if ( $related ) {
   echo '<h2>Related</h2>';
   echo '<div class="tbf-photofall__grid">';
   foreach ( $related as $r ) {
-    $href = esc_url((string) ($r['href'] ?? ''));
-
     $thumbRaw = (string) ($r['thumb_url'] ?? '');
     if ($thumbRaw === '') $thumbRaw = (string) ($r['poster_url'] ?? '');
     if ($thumbRaw === '') $thumbRaw = (string) ($r['url_full'] ?? '');
 
     if ($thumbRaw === '') continue; // avoid <img src="">
 
-    $thumb = esc_url($thumbRaw);
-
     echo '<article class="tbf-pf-card">';
-    echo '<a class="tbf-pf-card__link" href="' . $href . '">';
-    echo '<img class="tbf-pf-card__img" src="' . $thumb . '" alt="" loading="lazy" decoding="async" />';
+    echo '<a class="tbf-pf-card__link" href="' . esc_url((string) ($r['href'] ?? '')) . '">';
+    echo '<img class="tbf-pf-card__img" src="' . esc_url($thumbRaw) . '" alt="" loading="lazy" decoding="async" />';
     if ( (string) ($r['media_type'] ?? '') === 'video' ) echo '<span class="tbf-pf-card__badge">▶</span>';
     echo '</a></article>';
   }

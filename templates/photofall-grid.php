@@ -1,15 +1,25 @@
 <?php
 /**
  * Template: Photofall Grid
- * Version: 4.0.9
+ * Version: 6.5.0 (Strict Enqueue & JSON Encode)
  */
 if ( ! defined('ABSPATH') ) exit;
 
 get_header();
 
 // Expect the templates class to localize these on the page:
-$apiBase = esc_url( home_url('/1drop/wp-json/tbf-photofall/v1') );
-$placeholder = esc_url( home_url('/wp-content/uploads/2026/02/tbfnmi-placeholder.png') );
+$apiBase = esc_url_raw( home_url('/1drop/wp-json/tbf-photofall/v1') );
+$placeholder = esc_url_raw( home_url('/wp-content/uploads/2026/02/tbfnmi-placeholder.png') );
+
+// WordPress Mandatory Enqueue Standards
+wp_enqueue_script('jquery');
+$inline_script = "
+    window.TBF_PHOTOFALL = window.TBF_PHOTOFALL || {};
+    window.TBF_PHOTOFALL.apiBase = " . wp_json_encode($apiBase) . ";
+    window.TBF_PHOTOFALL.placeholder = " . wp_json_encode($placeholder) . ";
+    window.TBF_PHOTOFALL.pageSize = window.TBF_PHOTOFALL.pageSize || 24;
+";
+wp_add_inline_script('jquery', $inline_script);
 ?>
 <div class="tbf-photofall-wrap">
   <div class="tbf-photofall-topbar">
@@ -35,11 +45,5 @@ $placeholder = esc_url( home_url('/wp-content/uploads/2026/02/tbfnmi-placeholder
   </div>
 </div>
 
-<script>
-window.TBF_PHOTOFALL = window.TBF_PHOTOFALL || {};
-window.TBF_PHOTOFALL.apiBase = <?php echo json_encode($apiBase); ?>;
-window.TBF_PHOTOFALL.placeholder = <?php echo json_encode($placeholder); ?>;
-window.TBF_PHOTOFALL.pageSize = window.TBF_PHOTOFALL.pageSize || 24;
-</script>
 <?php
 get_footer();
