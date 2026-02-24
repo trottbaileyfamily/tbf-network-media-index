@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/integrations/class-tbfnmi-vikinger-bridge.php
- * Version: 6.2.1 (Thumbnail Blocker)
+ * Version: 6.2.2 (Zero-Disk-Space Sync)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -98,11 +98,22 @@ class TBFNMI_Vikinger_Bridge {
                 
                 if ( ! is_wp_error($attach_id) ) {
                     require_once(ABSPATH . 'wp-admin/includes/image.php');
+                    
+                    // CRITICAL FIX: Block WordPress from creating physical thumbnail files
+                    add_filter('intermediate_image_sizes_advanced', '__return_empty_array', 999);
+                    
                     $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
                     wp_update_attachment_metadata($attach_id, $attach_data);
                     
-                    $indexer = new TBFNMI_Indexer();
-                    $indexer->index_single_attachment($attach_id);
+                    // Remove the filter immediately so we don't break manual user uploads
+                    remove_filter('intermediate_image_sizes_advanced', '__return_empty_array', 999);
+                    
+                    if ( class_exists('TBFNMI_Indexer') ) {
+                        $indexer = new TBFNMI_Indexer();
+                        if ( method_exists($indexer, 'index_single_attachment') ) {
+                            $indexer->index_single_attachment($attach_id);
+                        }
+                    }
                     
                     $synced_count++;
                 }
