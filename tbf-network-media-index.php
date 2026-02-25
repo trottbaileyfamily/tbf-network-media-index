@@ -3,10 +3,10 @@
  * Plugin Name:       TBF Network Media Index
  * Plugin URI:        https://trottbaileyfamily.com/tbf-network-media-index
  * Description:       Browse and insert media from any site in a multisite network. Includes "Photofall" - a Pinterest-style media feed.
- * Version:           6.5.3
+ * Version:           6.6.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
- * Author:            Sherika Trott Bailey, Kimroy Bailey, David Luis
+ * Author:            Sherika Trott Bailey, Kimroy Bailey, Trott Bailey Family
  * Author URI:        https://trottbaileyfamily.com
  * Network:           true
  * Text Domain:       tbf-network-media-index
@@ -15,7 +15,7 @@
 
 if ( ! defined('ABSPATH') ) exit;
 
-define('TBFNMI_VER', '6.5.3');
+define('TBFNMI_VER', '6.6.0');
 define('TBFNMI_DIR', plugin_dir_path(__FILE__));
 define('TBFNMI_URL', plugin_dir_url(__FILE__));
 

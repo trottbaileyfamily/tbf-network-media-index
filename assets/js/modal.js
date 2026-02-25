@@ -1,7 +1,7 @@
 /* global jQuery, _, Backbone, wp, tbfnmi_modal_data */
 /* =========================================================
    File: assets/js/modal.js
-   Version: 6.4.9 (CSS Sync & Architecture Consolidation)
+   Version: 6.5.7 (Shuffle Order Implementation)
    ========================================================= */
 (function ($) {
     if (!window.wp || !wp.media || !window.tbfnmi_modal_data) return;
@@ -9,7 +9,9 @@
     const Ajax = {
         list(params) { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'GET', cache: false, dataType: 'json', data: Object.assign({ action: 'tbfnmi_list', nonce: tbfnmi_modal_data.nonce }, params || {}) }); },
         sites() { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'GET', cache: false, dataType: 'json', data: { action: 'tbfnmi_sites', nonce: tbfnmi_modal_data.nonce } }); },
-        proxy(originBlogId, originAttId) { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'POST', cache: false, dataType: 'json', data: { action: 'tbfnmi_proxy', nonce: tbfnmi_modal_data.nonce, origin_blog_id: originBlogId, origin_attachment_id: originAttId } }); },
+        proxy(originBlogId, originAttId, url, title, mime) { 
+            return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'POST', cache: false, dataType: 'json', data: { action: 'tbfnmi_proxy', nonce: tbfnmi_modal_data.nonce, origin_blog_id: originBlogId, origin_attachment_id: originAttId, url: url || '', title: title || '', mime: mime || '' } }); 
+        },
         proxyUrl(payload) { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'POST', cache: false, dataType: 'json', data: Object.assign({ action: 'tbfnmi_proxy_url', nonce: tbfnmi_modal_data.nonce }, payload || {}) }); }
     };
 
@@ -68,11 +70,25 @@
         this._setStatus('Preparing...');
         if (this.viewInstance) this.viewInstance.renderSidebar(model);
 
-        const finalize = (attachmentId) => {
+        const finalize = (attachmentId, proxyUrl) => {
             if (!this.selectedMap[key]) return;
             this.selectedMap[key].localId = attachmentId;
             const att = wp.media.model.Attachment.get(attachmentId);
-            att.set({ id: attachmentId, url: m.url, mime: m.mime || 'image/jpeg', type: m.media_type || 'image' });
+            
+            const finalUrl = proxyUrl || m.url;
+            const w = parseInt(m.width) || 800;
+            const h = parseInt(m.height) || 800;
+            
+            att.set({ 
+                id: attachmentId, 
+                url: finalUrl, 
+                mime: m.mime || 'image/jpeg', 
+                type: m.media_type || 'image',
+                width: w,
+                height: h,
+                sizes: { full: { url: finalUrl, width: w, height: h } }
+            });
+
             if (selection) selection.add(att);
             this._setStatus('');
         };
@@ -89,14 +105,14 @@
                 .done((resp) => {
                     if (resp && resp.success) {
                         this.proxyCache[key] = resp.data.local_attachment_id;
-                        finalize(resp.data.local_attachment_id);
+                        finalize(resp.data.local_attachment_id, m.url);
                     } else fail();
                 }).fail(fail);
         } else {
-            Ajax.proxy(m.blog_id, m.attachment_id).done((resp) => {
+            Ajax.proxy(m.blog_id, m.attachment_id, m.url, m.title, m.mime).done((resp) => {
                 if (resp && resp.success) {
                     this.proxyCache[key] = resp.data.local_attachment_id;
-                    finalize(resp.data.local_attachment_id);
+                    finalize(resp.data.local_attachment_id, resp.data.url);
                 } else fail();
             }).fail(fail);
         }
@@ -105,7 +121,8 @@
     const NetworkMediaView = wp.media.View.extend({
         className: 'tbfnmi-view',
         events: {
-            'click .tbfnmi-refresh': 'refresh',
+            'click .tbfnmi-refresh': 'resetAndRefresh',
+            'click .tbfnmi-shuffle': 'shuffle',
             'click .tbfnmi-load-more': 'loadMore',
             'input .tbfnmi-search': 'onSearchInput',
             'change .tbfnmi-mime': 'refresh',
@@ -120,7 +137,7 @@
             this.query = '';
             this.mime = '';
             this.origin_blog_id = '';
-            
+            this.orderby = 'date';
             try {
                 const lib = this.controller.frame.state().get('library');
                 if (lib && lib.get('type')) {
@@ -130,7 +147,6 @@
             } catch (e) { }
         },
         render() {
-            // Structurally locked layout relying on the v6.4.9 CSS fixes
             this.$el.html(
                 '<div style="display: flex; flex-direction: column; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #fff;">' +
                     '<div class="tbfnmi-toolbar">' +
@@ -138,6 +154,7 @@
                         '<select class="tbfnmi-mime"><option value="">All Types</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option><option value="application">Documents</option></select>' +
                         '<select class="tbfnmi-origin"><option value="">All origin sites</option></select>' +
                         '<button type="button" class="button tbfnmi-refresh">Refresh</button>' +
+                        '<button type="button" class="button tbfnmi-shuffle" style="margin-left:4px;">Shuffle</button>' +
                         '<span class="tbfnmi-status" style="color: #d63638; font-weight: 600; margin-left: 10px; display: none;"></span>' +
                     '</div>' +
                     '<div style="flex: 1; display: flex; overflow: hidden; position: relative;">' +
@@ -151,16 +168,12 @@
                     '</div>' +
                 '</div>'
             );
-
             this.$grid = this.$('.tbfnmi-grid');
             this.$status = this.$('.tbfnmi-status');
             this.$origin = this.$('.tbfnmi-origin');
             this.$sidebar = this.$('.tbfnmi-sidebar');
 
-            this.$sidebar.on('mousedown mouseup click play pause', '.tbfnmi-attachment-details audio, .tbfnmi-attachment-details video', function(e) {
-                e.stopPropagation();
-            });
-
+            this.$sidebar.on('mousedown mouseup click play pause', '.tbfnmi-attachment-details audio, .tbfnmi-attachment-details video', function(e) { e.stopPropagation(); });
             if (['image', 'video', 'audio', 'application'].indexOf(this.mime) !== -1) this.$('.tbfnmi-mime').val(this.mime);
 
             this.populateSites();
@@ -201,10 +214,7 @@
         },
         hideSidebar() { this.$sidebar.hide().empty(); },
         setStatus(msg) {
-            if (this.$status) {
-                if(msg) this.$status.text(msg).show();
-                else this.$status.hide();
-            }
+            if (this.$status) { if(msg) this.$status.text(msg).show(); else this.$status.hide(); }
         },
         populateSites() {
             Ajax.sites().done((res) => {
@@ -219,6 +229,14 @@
             this.query = (this.$('.tbfnmi-search').val() || '').trim();
             clearTimeout(this._searchTimer);
             this._searchTimer = setTimeout(() => this.refresh(), 250);
+        },
+        resetAndRefresh() {
+            this.orderby = 'date';
+            this.refresh();
+        },
+        shuffle() {
+            this.orderby = 'rand';
+            this.refresh();
         },
         refresh() {
             this.page = 1;
@@ -238,7 +256,8 @@
                 per_page: (tbfnmi_modal_data && tbfnmi_modal_data.perPage) ? tbfnmi_modal_data.perPage : 60,
                 s: this.query,
                 mime: this.$('.tbfnmi-mime').val() || '',
-                origin_blog_id: this.$('.tbfnmi-origin').val() || ''
+                origin_blog_id: this.$('.tbfnmi-origin').val() || '',
+                orderby: this.orderby
             }).done((res) => {
                 if (!res || !res.success || !res.data) { this.setStatus('Error loading.'); return; }
                 const items = res.data.items || [];
@@ -261,13 +280,12 @@
 
                     let thumbnailHtml = '';
                     
-                    // The pure HTML structure. The v6.4.9 CSS handles all the sizing and centering.
                     if (it.media_type === 'audio' || thumb.match(/\.(mp3|wav|ogg|flac|m4a)$/i)) {
-                        thumbnailHtml = '<div class="thumbnail"><div class="centered"><img src="' + includesUrl + 'images/media/audio.png" class="icon" alt=""></div></div>';
+                        thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-audio-icon-wrap"><img src="' + includesUrl + 'images/media/audio.png" class="icon" alt=""></div></div>';
                     } else if (it.media_type === 'video' && (!it.thumb || it.thumb === it.url || thumb.match(/\.(mp4|webm|mov)$/i))) {
-                        thumbnailHtml = '<div class="thumbnail"><div class="centered"><img src="' + includesUrl + 'images/media/video.png" class="icon" alt=""></div></div>';
+                        thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-video-icon-wrap"><img src="' + includesUrl + 'images/media/video.png" class="icon" alt=""></div></div>';
                     } else {
-                        thumbnailHtml = '<div class="thumbnail"><div class="centered"><img src="' + _.escape(thumb) + '" alt=""></div></div>';
+                        thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-portrait-fix"><img src="' + _.escape(thumb) + '" alt=""></div></div>';
                     }
 
                     const li = $('<li class="attachment tbfnmi-item" data-tbfnmi-key="' + key + '"></li>');
@@ -283,11 +301,8 @@
                     if (this.controller.selectedMap[key]) li.addClass('selected details');
                 });
                 
-                if (this.page < parseInt(res.data.max_pages, 10)) {
-                    this.$('.tbfnmi-load-more').show();
-                } else {
-                    this.$('.tbfnmi-load-more').hide();
-                }
+                if (this.page < parseInt(res.data.max_pages, 10)) this.$('.tbfnmi-load-more').show();
+                else this.$('.tbfnmi-load-more').hide();
 
                 this.setStatus('');
                 this.page += 1;

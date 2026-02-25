@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/admin/class-tbfnmi-subsite-settings.php
- * Version: 6.5.2 (Tabbed UI & Secure Sitemap Pinging)
+ * Version: 6.5.16 (SEO Interlinking Toggle & Safe Saves)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -48,11 +48,8 @@ class TBFNMI_Subsite_Settings {
           $photoIndex = home_url('/photo-sitemap-index.xml');
           $videoIndex = home_url('/video-sitemap-index.xml');
 
-          // Ping Google
           wp_remote_get('https://www.google.com/ping?sitemap=' . urlencode($photoIndex), ['blocking' => false]);
           wp_remote_get('https://www.google.com/ping?sitemap=' . urlencode($videoIndex), ['blocking' => false]);
-          
-          // Ping Bing
           wp_remote_get('https://www.bing.com/ping?sitemap=' . urlencode($photoIndex), ['blocking' => false]);
           wp_remote_get('https://www.bing.com/ping?sitemap=' . urlencode($videoIndex), ['blocking' => false]);
 
@@ -62,34 +59,45 @@ class TBFNMI_Subsite_Settings {
   }
 
   public static function sanitize_options($input) {
-      $output = [];
-      $output['show_search']      = !empty($input['show_search']) ? 1 : 0;
-      $output['show_filter_type'] = !empty($input['show_filter_type']) ? 1 : 0;
-      $output['show_filter_year'] = !empty($input['show_filter_year']) ? 1 : 0;
-      $output['show_filter_site'] = !empty($input['show_filter_site']) ? 1 : 0;
-      $output['show_random']      = !empty($input['show_random']) ? 1 : 0;
-      $output['show_sort']        = !empty($input['show_sort']) ? 1 : 0;
-      $output['show_frontend']    = !empty($input['show_frontend']) ? 1 : 0;
-      $output['default_sort']     = isset($input['default_sort']) ? sanitize_text_field($input['default_sort']) : 'date_desc';
-      $output['caption_mode']     = isset($input['caption_mode']) ? sanitize_text_field($input['caption_mode']) : 'hover';
-      $output['allowed_types']    = (isset($input['allowed_types']) && is_array($input['allowed_types'])) ? array_map('sanitize_text_field', $input['allowed_types']) : [];
-      $output['source_sites']     = (isset($input['source_sites']) && is_array($input['source_sites'])) ? array_map('intval', $input['source_sites']) : [];
+      // CRITICAL FIX: Merge with existing options so tabs don't overwrite each other
+      $existing = get_option(self::OPTION_KEY, []);
+      $output = $existing; 
+      
+      $tab = isset($_POST['tbfnmi_tab']) ? sanitize_text_field($_POST['tbfnmi_tab']) : 'general';
+
+      if ($tab === 'general') {
+          $output['show_search']      = !empty($input['show_search']) ? 1 : 0;
+          $output['show_filter_type'] = !empty($input['show_filter_type']) ? 1 : 0;
+          $output['show_filter_year'] = !empty($input['show_filter_year']) ? 1 : 0;
+          $output['show_filter_site'] = !empty($input['show_filter_site']) ? 1 : 0;
+          $output['show_random']      = !empty($input['show_random']) ? 1 : 0;
+          $output['show_sort']        = !empty($input['show_sort']) ? 1 : 0;
+          $output['show_frontend']    = !empty($input['show_frontend']) ? 1 : 0;
+          $output['default_sort']     = isset($input['default_sort']) ? sanitize_text_field($input['default_sort']) : 'date_desc';
+          $output['caption_mode']     = isset($input['caption_mode']) ? sanitize_text_field($input['caption_mode']) : 'hover';
+          $output['allowed_types']    = (isset($input['allowed_types']) && is_array($input['allowed_types'])) ? array_map('sanitize_text_field', $input['allowed_types']) : [];
+          $output['source_sites']     = (isset($input['source_sites']) && is_array($input['source_sites'])) ? array_map('intval', $input['source_sites']) : [];
+      } elseif ($tab === 'sitemaps') {
+          $output['seo_interlink_origin'] = !empty($input['seo_interlink_origin']) ? 1 : 0;
+      }
+
       return $output;
   }
 
   public static function get_options() {
     $defaults = [
-      'show_search'      => 1, 
-      'show_filter_type' => 1, 
-      'show_filter_year' => 1, 
-      'show_filter_site' => 1, 
-      'show_random'      => 1,
-      'show_sort'        => 1,
-      'default_sort'     => 'date_desc', 
-      'caption_mode'     => 'hover',
-      'allowed_types'    => ['image', 'video', 'audio'], 
-      'source_sites'     => [],
-      'show_frontend'    => 1, 
+      'show_search'          => 1, 
+      'show_filter_type'     => 1, 
+      'show_filter_year'     => 1, 
+      'show_filter_site'     => 1, 
+      'show_random'          => 1,
+      'show_sort'            => 1,
+      'default_sort'         => 'date_desc', 
+      'caption_mode'         => 'hover',
+      'allowed_types'        => ['image', 'video', 'audio'], 
+      'source_sites'         => [],
+      'show_frontend'        => 1, 
+      'seo_interlink_origin' => 0, // NEW DEFAULT
     ];
     $opts = get_option(self::OPTION_KEY, []);
     return wp_parse_args($opts, $defaults);
@@ -111,6 +119,7 @@ class TBFNMI_Subsite_Settings {
       <?php if ( $active_tab === 'general' ): ?>
           <form method="post" action="options.php">
             <?php settings_fields('tbfnmi_photofall_group'); ?>
+            <input type="hidden" name="tbfnmi_tab" value="general">
             
             <table class="form-table">
               <tr>
@@ -181,7 +190,7 @@ class TBFNMI_Subsite_Settings {
                   <select name="<?php echo esc_attr(self::OPTION_KEY); ?>[caption_mode]">
                     <option value="hover" <?php selected($opts['caption_mode'], 'hover'); ?>><?php esc_html_e('Show on Hover', 'tbf-network-media-index'); ?></option>
                     <option value="always" <?php selected($opts['caption_mode'], 'always'); ?>><?php esc_html_e('Always Visible', 'tbf-network-media-index'); ?></option>
-                    <option value="never" <?php selected($opts['prevent_status_revert'], 'never'); ?>><?php esc_html_e('Never Show', 'tbf-network-media-index'); ?></option>
+                    <option value="never" <?php selected($opts['caption_mode'], 'never'); ?>><?php esc_html_e('Never Show', 'tbf-network-media-index'); ?></option>
                   </select>
                 </td>
               </tr>
@@ -202,6 +211,23 @@ class TBFNMI_Subsite_Settings {
           <?php endif; ?>
 
           <div class="card" style="max-width: 800px; margin-top: 20px;">
+              <h2><?php esc_html_e('SEO Interlinking Strategy', 'tbf-network-media-index'); ?></h2>
+              <p><?php esc_html_e('Boost your network\'s SEO by building a powerful internal link profile. When enabled, individual media attachment pages will automatically generate a high-value backlink to the original post where the image was used.', 'tbf-network-media-index'); ?></p>
+              
+              <form method="post" action="options.php">
+                  <?php settings_fields('tbfnmi_photofall_group'); ?>
+                  <input type="hidden" name="tbfnmi_tab" value="sitemaps">
+                  
+                  <label style="display:block; margin: 15px 0 25px; padding: 15px; background: #f0f0f1; border-left: 4px solid #2271b1;">
+                      <input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[seo_interlink_origin]" value="1" <?php checked($opts['seo_interlink_origin']); ?>>
+                      <strong><?php esc_html_e('Enable Origin Post Interlinking on Single Image Pages', 'tbf-network-media-index'); ?></strong>
+                  </label>
+                  
+                  <?php submit_button(esc_attr__('Save SEO Settings', 'tbf-network-media-index')); ?>
+              </form>
+
+              <hr style="margin: 30px 0;">
+
               <h2><?php esc_html_e('Photofall Media Sitemaps', 'tbf-network-media-index'); ?></h2>
               <p><?php esc_html_e('Your network media is automatically indexed and formatted for Google Search. Submit these index URLs directly to Google Search Console:', 'tbf-network-media-index'); ?></p>
               
@@ -211,7 +237,7 @@ class TBFNMI_Subsite_Settings {
               </ul>
               <p class="description"><?php esc_html_e('If these URLs return a 404 error, simply navigate to Settings → Permalinks and click "Save Changes" to flush the rewrite rules.', 'tbf-network-media-index'); ?></p>
               
-              <hr style="margin: 20px 0;">
+              <hr style="margin: 30px 0;">
               
               <h3><?php esc_html_e('Manual Search Engine Ping', 'tbf-network-media-index'); ?></h3>
               <p><?php esc_html_e('Click the button below to instantly notify Google and Bing that your media sitemaps have been updated.', 'tbf-network-media-index'); ?></p>

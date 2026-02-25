@@ -4,7 +4,7 @@ Tags: multisite media library, share media across multisite, network media, cros
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 6.5.2
+Stable tag: 6.5.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
