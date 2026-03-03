@@ -1,0 +1,425 @@
+/*
+ * File: assets/css/world-ruler.css
+ * Version: 6.9.1 (Queen Keilah Complete UI Kit)
+ * Description: Styling for the World Ruler floating gadget, music player, and playlist manager.
+ */
+
+/* ==========================================================================
+   1. MAIN CONTAINER & FLOATING TAB
+   ========================================================================== */
+
+#tbf-world-ruler-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* Soft shadow for depth */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border-radius: 30px;
+    /* No transition on 'all' to prevent lag during drag. Animations handled on opacity/transform */
+}
+
+/* Minimized Pill Tab */
+#tbf-wr-tab {
+    background: #111;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    user-select: none;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+#tbf-wr-tab:hover {
+    transform: scale(1.05);
+    background: #222;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Hide tab when gadget is expanded */
+#tbf-world-ruler-container.expanded #tbf-wr-tab {
+    display: none;
+}
+
+/* ==========================================================================
+   2. EXPANDED GADGET (THE BOX)
+   ========================================================================== */
+
+#tbf-wr-gadget {
+    display: none;
+    width: 340px;
+    height: 520px;
+    background: rgba(18, 18, 24, 0.95);
+    /* Glassmorphism Blur */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-direction: column;
+}
+
+#tbf-world-ruler-container.expanded {
+    border-radius: 12px;
+}
+
+#tbf-world-ruler-container.expanded #tbf-wr-gadget {
+    display: flex;
+}
+
+/* ==========================================================================
+   3. HEADER (DRAG HANDLE)
+   ========================================================================== */
+
+.wr-header {
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+    cursor: grab; /* Indicates draggable */
+    user-select: none;
+}
+
+.wr-header:active {
+    cursor: grabbing;
+}
+
+.wr-title {
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.wr-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.wr-controls .dashicons {
+    color: #aaa;
+    cursor: pointer;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    transition: color 0.2s;
+}
+
+.wr-controls .dashicons:hover {
+    color: #fff;
+}
+
+/* ==========================================================================
+   4. STAGE (SLIDESHOW AREA)
+   ========================================================================== */
+
+.wr-stage {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    cursor: default; /* Reset cursor inside */
+    min-height: 200px;
+}
+
+#wr-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #666;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    z-index: 1;
+}
+
+.wr-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    pointer-events: none;
+}
+
+.wr-slide.active {
+    opacity: 1;
+    pointer-events: auto; /* Allow double-click */
+}
+
+/* Slide Navigation Arrows */
+.wr-slide-nav {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.wr-slide-nav:hover {
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+}
+
+.wr-prev-slide { left: 0; }
+.wr-next-slide { right: 0; }
+
+/* ==========================================================================
+   5. PLAYLIST OVERLAY (DRAWER)
+   ========================================================================== */
+
+#wr-playlist-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 15, 20, 0.98); /* Opaque dark background */
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%); /* Hidden by default */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#wr-playlist-overlay.active {
+    transform: translateY(0); /* Slide up */
+}
+
+.wr-overlay-header {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.wr-overlay-title {
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#wr-overlay-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+/* Scrollbar styling for overlay */
+#wr-overlay-content::-webkit-scrollbar { width: 6px; }
+#wr-overlay-content::-webkit-scrollbar-track { background: #111; }
+#wr-overlay-content::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* Playlist Items (Level 1) */
+.wr-pl-item {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #ddd;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    align-items: center;
+}
+
+.wr-pl-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+/* Track Items (Level 2) */
+.wr-pl-track {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #bbb;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.wr-pl-track:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.wr-pl-track.active {
+    background: rgba(34, 113, 177, 0.15);
+    color: #fff;
+    border-left: 3px solid #2271b1;
+    padding-left: 12px; /* Adjust for border */
+}
+
+/* ==========================================================================
+   6. AUDIO PLAYER & CONTROLS
+   ========================================================================== */
+
+.wr-player {
+    padding: 15px;
+    background: #1a1a1a;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.wr-track-info {
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.wr-audio-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+/* Circular Buttons */
+.wr-audio-btn {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    outline: none;
+}
+
+.wr-audio-btn:hover {
+    background: #2271b1; /* WordPress Blue */
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.wr-audio-btn.active {
+    background: #2271b1;
+    box-shadow: 0 0 10px rgba(34, 113, 177, 0.5);
+}
+
+/* Small secondary buttons (Shuffle/Playlist) */
+.wr-audio-btn.small {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    background: transparent;
+    color: #888;
+}
+
+.wr-audio-btn.small:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+.wr-audio-btn.small.active {
+    color: #2271b1;
+    background: rgba(34, 113, 177, 0.1);
+    box-shadow: none;
+}
+
+/* Audio Element */
+#wr-audio-element {
+    flex: 1;
+    height: 32px;
+    outline: none;
+    width: 100%;
+    border-radius: 20px;
+}
+
+/* ==========================================================================
+   7. MOBILE RESPONSIVENESS
+   ========================================================================== */
+
+@media (max-width: 480px) {
+    #tbf-world-ruler-container {
+        /* Default safety position */
+        bottom: 15px; 
+        right: 15px;
+    }
+
+    #tbf-wr-gadget {
+        width: 90vw; /* Almost full width */
+        height: 65vh; /* Taller on mobile */
+        max-width: 350px;
+    }
+
+    .wr-audio-btn {
+        width: 34px; 
+        height: 34px; /* Larger touch targets */
+    }
+    
+    /* Hide detailed controls if space is tight */
+    .wr-audio-btn.small {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* ==========================================================================
+   8. MAXIMIZED MODE (THEATER)
+   ========================================================================== */
+
+#tbf-world-ruler-container.maximized {
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0;
+    transform: none !important;
+    z-index: 9999999; /* Top of everything */
+}
+
+#tbf-world-ruler-container.maximized #tbf-wr-gadget {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+}
+
+#tbf-world-ruler-container.maximized .wr-stage {
+    flex: 1; /* Consume all vertical space */
+}

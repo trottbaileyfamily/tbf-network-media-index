@@ -1,10 +1,10 @@
-=== TBF Network Media Index ===
+=== TBF Network Media Index – Multisite Shared Media Library ===
 Contributors: sherikatrottbailey, kimroybailey, trottbaileyfamily
 Tags: multisite media library, share media across multisite, network media, cross-site images, multisite global media, photofall gallery, pinterest gallery
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 6.5.9
+Stable tag: 6.6.19
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -53,6 +53,18 @@ This plugin is the archival engine organizing the tens of thousands of media fil
 
 == Frequently Asked Questions ==
 
+= The "Network Media" tab is empty. =
+Ensure you have run the Indexer at least once from **Network Admin -> TBF Network Media**. If the indexer stalls, try reducing the "Batch Size" in the settings.
+
+= Images show as broken icons in the Grid. =
+This usually happens if the source site is HTTP and the viewing site is HTTPS (mixed content). Ensure all sites in your network use SSL.
+
+= Frontend Uploader says "Permission Denied". =
+Check **Settings -> Photofall** and ensure your user role is highlighted in the "Authorized Upload Roles" list.
+
+= "Featured In" links are missing. =
+The crawler runs on `save_post`. If you have old content, go to the Network Indexer and run a **Full Batch Index**. This will crawl all historical posts and map their image usage.
+
 = Does this copy images between my subsites? =
 No. It creates a database-only "proxy" record that points to the original image URL. This zero-duplication architecture keeps your server storage and inode usage highly optimized.
 
@@ -69,6 +81,26 @@ The plugin features a robust integration with BuddyPress and the Vikinger theme.
 Absolutely. The background indexer and the frontend "Load More" AJAX features are built with chunked offset processing. They safely handle tens of thousands of files without crashing your server or triggering PHP memory limits.
 
 == Changelog ==
+
+= 6.6.18 =
+* **FEATURE:** **Backend Caption Toggle.** Added a toggle button to the WordPress Media Library modal to hide filenames, fixing grid visibility when filenames are too long.
+* **FEATURE:** **Frontend Caption Toggle.** Added a "Hide Captions" text icon to the Photofall toolbar to reveal full images obscured by long titles.
+* **UX:** Improved Masonry layout CSS to prevent square cropping; images now respect their natural aspect ratio.
+* **FIX:** Hardened CSS for video/audio icons to prevent over-zooming on certain themes.
+
+= 6.6.14 =
+* **FEATURE:** **Proxy-Aware Crawler.** The SEO engine now resolves local proxy URLs back to their original source to ensure accurate backlinking.
+* **FEATURE:** **All-Type Indexing.** The batch indexer now captures custom post types (like 'video' or 'portfolio') to support complex themes.
+* **SEO:** Enhanced "Google Images" logic in the Lightbox to display "View Source Post" buttons.
+
+= 6.6.10 =
+* **FEATURE:** **Live Admin Controls.** Admins can now **Hide** or **Delete** media directly from the frontend Photofall grid.
+* **FEATURE:** **Frontend Uploader.** A beautiful multi-file upload modal for authorized users to add content from the frontend.
+* **UX:** Added "Live" and "Hidden" tabs to the Photofall grid for easier content curation.
+
+= 6.6.2 =
+* **PERFORMANCE:** Introduced `tbfnmi_usage_map` database table for lightning-fast SEO queries.
+* **SEO:** Real-time `save_post` crawler to track image usage across the network instantly.
 
 = 6.5.0 =
 * SECURITY: Implemented strict Late Escaping (`wp_kses`, `esc_html`, `esc_attr`) across all frontend templates and dashboard interfaces to comply with modern WP security standards.

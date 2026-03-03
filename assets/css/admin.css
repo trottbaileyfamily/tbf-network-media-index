@@ -1,4 +1,9 @@
-/* TBFNMI Network Media Modal Visual Enhancements (v6.3.1) */
+/*
+ * File: assets/css/admin.css
+ * Version: 6.6.18 (Backend Caption Hiding)
+ */
+
+/* TBFNMI Network Media Modal Visual Enhancements */
 
 /* Portrait Image Fix - Ensure images maintain aspect ratio */
 .tbfnmi-view .attachment-preview .thumbnail .centered.tbf-portrait-fix img {
@@ -42,6 +47,19 @@
     border-top: 1px solid #ddd;
     /* Make sure it sits above the image but below the checkmark */
     z-index: 1; 
+    transition: opacity 0.2s;
+}
+
+/* Toggle Logic: Hide Filename when class active */
+.tbfnmi-view.hide-captions .attachment-preview .filename {
+    display: none !important;
+}
+
+/* Toggle Button Active State */
+.tbfnmi-toggle-captions.active {
+    background: #2271b1 !important;
+    color: #fff !important;
+    border-color: #2271b1 !important;
 }
 
 /* Adjust the checkmark position so it doesn't overlap the title */

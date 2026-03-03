@@ -1,25 +1,24 @@
 <?php
 /**
- * Plugin Name:       TBF Network Media Index
+ * Plugin Name:       TBF Network Media Index – Multisite Shared Media Library
  * Plugin URI:        https://trottbaileyfamily.com/tbf-network-media-index
- * Description:       Browse and insert media from any site in a multisite network. Includes "Photofall" - a Pinterest-style media feed.
- * Version:           6.6.0
+ * Description:       The ultimate media library enhancement. Includes "Photofall" - a Pinterest-style media feed, Frontend Uploader, and SEO Interlinking. Works on Multisite and Single Sites.
+ * Version:           6.9.5
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Sherika Trott Bailey, Kimroy Bailey, Trott Bailey Family
  * Author URI:        https://trottbaileyfamily.com
- * Network:           true
  * Text Domain:       tbf-network-media-index
  * License:           GPL-2.0-or-later
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-define('TBFNMI_VER', '6.6.0');
+define('TBFNMI_VER', '6.9.5');
 define('TBFNMI_DIR', plugin_dir_path(__FILE__));
 define('TBFNMI_URL', plugin_dir_url(__FILE__));
 
-// --- 1. ALWAYS LOAD: Core Media Library Features ---
+// Core Requirements
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-admin.php';
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-ajax.php';
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-proxy.php';
@@ -28,13 +27,16 @@ require_once TBFNMI_DIR . 'includes/class-tbfnmi-featured-media.php';
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-visibility.php';
 require_once TBFNMI_DIR . 'includes/indexer/class-tbfnmi-indexer.php';
 require_once TBFNMI_DIR . 'includes/class-tbfnmi-gutenberg.php'; 
+require_once TBFNMI_DIR . 'includes/seo/class-tbfnmi-seo-meta.php';
 
+// Init Core Systems
 TBFNMI_Proxy::init();
 TBFNMI_Featured_Media::register();
 TBFNMI_Visibility::init();
 TBFNMI_Admin::init();
 TBFNMI_AJAX::init();
 TBFNMI_Gutenberg::init(); 
+TBFNMI_SEO_Meta::init();
 
 class TBFNMI_Network_Media_Index {
 
@@ -51,7 +53,7 @@ class TBFNMI_Network_Media_Index {
   }
 
   public static function load_modules() {
-    // 1. Elementor Support 
+    // 1. Elementor
     if ( defined('ELEMENTOR_VERSION') || did_action('elementor/loaded') ) {
         if ( file_exists(TBFNMI_DIR . 'includes/integrations/class-tbfnmi-elementor-support.php') ) {
             require_once TBFNMI_DIR . 'includes/integrations/class-tbfnmi-elementor-support.php';
@@ -59,31 +61,26 @@ class TBFNMI_Network_Media_Index {
         }
     }
 
-    // 2. Network Admin & AJAX 
-    if ( is_network_admin() || wp_doing_ajax() ) {
+    // 2. Network Dashboard (Indexer UI)
+    if ( (is_multisite() && is_network_admin()) || (!is_multisite() && is_admin()) ) {
         require_once TBFNMI_DIR . 'includes/admin/class-tbfnmi-network-dashboard.php';
         TBFNMI_Network_Dashboard::init();
-        
-        if ( file_exists(TBFNMI_DIR . 'includes/integrations/class-tbfnmi-vikinger-bridge.php') ) {
-            require_once TBFNMI_DIR . 'includes/integrations/class-tbfnmi-vikinger-bridge.php';
-            TBFNMI_Vikinger_Bridge::init();
-        }
     }
 
-    // 3. Photofall System
-    $enabled_sites = get_site_option('tbfnmi_photofall_enabled_sites', []);
-    $current_blog_id = get_current_blog_id();
+    // 3. Subsite Settings & Features (Photofall, World Ruler, Uploader)
+    // ALWAYS load these on single sites or subsites so the menus appear.
+    require_once TBFNMI_DIR . 'includes/admin/class-tbfnmi-subsite-settings.php';
+    TBFNMI_Subsite_Settings::init();
 
-    if ( in_array($current_blog_id, $enabled_sites) || wp_doing_ajax() ) {
-        require_once TBFNMI_DIR . 'includes/admin/class-tbfnmi-subsite-settings.php';
-        TBFNMI_Subsite_Settings::init();
+    require_once TBFNMI_DIR . 'includes/photofall/class-tbfnmi-photofall-router.php';
+    TBFNMI_Photofall_Router::init();
 
-        require_once TBFNMI_DIR . 'includes/photofall/class-tbfnmi-photofall-router.php';
-        TBFNMI_Photofall_Router::init();
+    // 4. World Ruler Engine
+    require_once TBFNMI_DIR . 'includes/world-ruler/class-tbfnmi-world-ruler.php';
+    TBFNMI_World_Ruler::init();
 
-        if ( get_option('tbfnmi_version') !== TBFNMI_VER ) {
-            add_action('init', [__CLASS__, 'safe_flush_rules'], 999);
-        }
+    if ( get_option('tbfnmi_version') !== TBFNMI_VER ) {
+        add_action('init', [__CLASS__, 'safe_flush_rules'], 999);
     }
   }
 
@@ -93,11 +90,16 @@ class TBFNMI_Network_Media_Index {
   }
 
   public static function enqueue_core_assets($hook) {
+    // Load on Post Edit, Page Edit, Upload, OR our Settings Page
     $screen = get_current_screen();
-    if ( ! $screen || ! in_array($screen->base, ['post', 'page', 'upload']) ) return;
+    $valid_bases = ['post', 'page', 'upload', 'settings_page_tbfnmi-photofall-settings'];
+    
+    if ( ! $screen || ! in_array($screen->base, $valid_bases) ) return;
 
     wp_enqueue_media();
     wp_enqueue_style('tbfnmi-admin', TBFNMI_URL . 'assets/css/admin.css', [], TBFNMI_VER);
+    
+    // Load the Network Media Modal Logic
     wp_enqueue_script(
       'tbfnmi-modal',
       TBFNMI_URL . 'assets/js/modal.js',
@@ -118,7 +120,8 @@ class TBFNMI_Network_Media_Index {
   }
 
   public static function add_media_tab_string($strings) {
-    $strings['tbfNetworkMediaTitle'] = __('TBF Network Media', 'tbf-network-media-index');
+    $label = is_multisite() ? __('Network Media', 'tbf-network-media-index') : __('Photofall Library', 'tbf-network-media-index');
+    $strings['tbfNetworkMediaTitle'] = $label;
     return $strings;
   }
 }

@@ -1,18 +1,57 @@
 /* global jQuery, _, Backbone, wp, tbfnmi_modal_data */
 /* =========================================================
    File: assets/js/modal.js
-   Version: 6.5.7 (Shuffle Order Implementation)
+   Version: 6.7.5 (Complete Network Media Modal Engine)
    ========================================================= */
 (function ($) {
     if (!window.wp || !wp.media || !window.tbfnmi_modal_data) return;
 
+    // --- 1. AJAX Helper ---
     const Ajax = {
-        list(params) { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'GET', cache: false, dataType: 'json', data: Object.assign({ action: 'tbfnmi_list', nonce: tbfnmi_modal_data.nonce }, params || {}) }); },
-        sites() { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'GET', cache: false, dataType: 'json', data: { action: 'tbfnmi_sites', nonce: tbfnmi_modal_data.nonce } }); },
-        proxy(originBlogId, originAttId, url, title, mime) { 
-            return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'POST', cache: false, dataType: 'json', data: { action: 'tbfnmi_proxy', nonce: tbfnmi_modal_data.nonce, origin_blog_id: originBlogId, origin_attachment_id: originAttId, url: url || '', title: title || '', mime: mime || '' } }); 
+        list(params) { 
+            return $.ajax({ 
+                url: tbfnmi_modal_data.ajax, 
+                method: 'GET', 
+                cache: false, 
+                dataType: 'json', 
+                data: Object.assign({ action: 'tbfnmi_list', nonce: tbfnmi_modal_data.nonce }, params || {}) 
+            }); 
         },
-        proxyUrl(payload) { return $.ajax({ url: tbfnmi_modal_data.ajax, method: 'POST', cache: false, dataType: 'json', data: Object.assign({ action: 'tbfnmi_proxy_url', nonce: tbfnmi_modal_data.nonce }, payload || {}) }); }
+        sites() { 
+            return $.ajax({ 
+                url: tbfnmi_modal_data.ajax, 
+                method: 'GET', 
+                cache: false, 
+                dataType: 'json', 
+                data: { action: 'tbfnmi_sites', nonce: tbfnmi_modal_data.nonce } 
+            }); 
+        },
+        proxy(originBlogId, originAttId, url, title, mime) { 
+            return $.ajax({ 
+                url: tbfnmi_modal_data.ajax, 
+                method: 'POST', 
+                cache: false, 
+                dataType: 'json', 
+                data: { 
+                    action: 'tbfnmi_proxy', 
+                    nonce: tbfnmi_modal_data.nonce, 
+                    origin_blog_id: originBlogId, 
+                    origin_attachment_id: originAttId, 
+                    url: url || '', 
+                    title: title || '', 
+                    mime: mime || '' 
+                } 
+            }); 
+        },
+        proxyUrl(payload) { 
+            return $.ajax({ 
+                url: tbfnmi_modal_data.ajax, 
+                method: 'POST', 
+                cache: false, 
+                dataType: 'json', 
+                data: Object.assign({ action: 'tbfnmi_proxy_url', nonce: tbfnmi_modal_data.nonce }, payload || {}) 
+            }); 
+        }
     };
 
     function isMultiSelectFrame(frame) {
@@ -24,6 +63,7 @@
         return false;
     }
 
+    // --- 2. Controller Logic ---
     const Controller = function (frame) {
         this.frame = frame;
         this.selectedMap = {};
@@ -118,11 +158,13 @@
         }
     };
 
+    // --- 3. The View (Grid UI) ---
     const NetworkMediaView = wp.media.View.extend({
         className: 'tbfnmi-view',
         events: {
             'click .tbfnmi-refresh': 'resetAndRefresh',
             'click .tbfnmi-shuffle': 'shuffle',
+            'click .tbfnmi-toggle-captions': 'toggleCaptions',
             'click .tbfnmi-load-more': 'loadMore',
             'input .tbfnmi-search': 'onSearchInput',
             'change .tbfnmi-mime': 'refresh',
@@ -155,6 +197,7 @@
                         '<select class="tbfnmi-origin"><option value="">All origin sites</option></select>' +
                         '<button type="button" class="button tbfnmi-refresh">Refresh</button>' +
                         '<button type="button" class="button tbfnmi-shuffle" style="margin-left:4px;">Shuffle</button>' +
+                        '<button type="button" class="button tbfnmi-toggle-captions" style="margin-left:4px;" title="Toggle Captions"><span class="dashicons dashicons-text" style="line-height:28px;"></span></button>' +
                         '<span class="tbfnmi-status" style="color: #d63638; font-weight: 600; margin-left: 10px; display: none;"></span>' +
                     '</div>' +
                     '<div style="flex: 1; display: flex; overflow: hidden; position: relative;">' +
@@ -186,6 +229,11 @@
             const key = $(el).attr('data-tbfnmi-key');
             const model = this.itemsMap[key];
             if (model) this.controller.toggleSelected(model, el);
+        },
+        toggleCaptions(e) {
+            e.preventDefault();
+            this.$el.toggleClass('hide-captions');
+            $(e.currentTarget).toggleClass('active');
         },
         renderSidebar(model) {
             const m = model.toJSON();
@@ -310,10 +358,14 @@
         }
     });
 
+    // --- 4. Inject Logic into WP Media Frame ---
     const oldBrowseRouter = wp.media.view.MediaFrame.Select.prototype.browseRouter;
     wp.media.view.MediaFrame.Select.prototype.browseRouter = function (routerView) {
         oldBrowseRouter.apply(this, arguments);
-        routerView.set('tbf-network-media', { text: 'Network Media', priority: 80 });
+        routerView.set('tbf-network-media', {
+            text: 'Network Media', 
+            priority: 80 
+        });
     };
 
     const oldBindHandlers = wp.media.view.MediaFrame.Select.prototype.bindHandlers;
