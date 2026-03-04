@@ -1,7 +1,7 @@
 /*
  * File: assets/css/world-ruler.css
- * Version: 6.9.1 (Queen Keilah Complete UI Kit)
- * Description: Styling for the World Ruler floating gadget, music player, and playlist manager.
+ * Version: 6.9.5.10 (Princess Keilah - Landscape Intelligence)
+ * Description: Styling for the Princess Keilah floating gadget, music player, and playlist manager.
  */
 
 /* ==========================================================================
@@ -17,7 +17,6 @@
     /* Soft shadow for depth */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     border-radius: 30px;
-    /* No transition on 'all' to prevent lag during drag. Animations handled on opacity/transform */
 }
 
 /* Minimized Pill Tab */
@@ -131,7 +130,7 @@
     background: #000;
     overflow: hidden;
     cursor: default; /* Reset cursor inside */
-    min-height: 200px;
+    min-height: 80px; /* Allow shrinking but keep minimum */
 }
 
 #wr-loading {
@@ -199,16 +198,16 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(15, 15, 20, 0.98); /* Opaque dark background */
+    background: rgba(15, 15, 20, 0.98); 
     z-index: 20;
     display: flex;
     flex-direction: column;
-    transform: translateY(100%); /* Hidden by default */
+    transform: translateY(100%); 
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #wr-playlist-overlay.active {
-    transform: translateY(0); /* Slide up */
+    transform: translateY(0); 
 }
 
 .wr-overlay-header {
@@ -235,12 +234,10 @@
     padding: 0;
 }
 
-/* Scrollbar styling for overlay */
 #wr-overlay-content::-webkit-scrollbar { width: 6px; }
 #wr-overlay-content::-webkit-scrollbar-track { background: #111; }
 #wr-overlay-content::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
-/* Playlist Items (Level 1) */
 .wr-pl-item {
     padding: 15px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -258,7 +255,6 @@
     color: #fff;
 }
 
-/* Track Items (Level 2) */
 .wr-pl-track {
     padding: 12px 15px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -280,7 +276,7 @@
     background: rgba(34, 113, 177, 0.15);
     color: #fff;
     border-left: 3px solid #2271b1;
-    padding-left: 12px; /* Adjust for border */
+    padding-left: 12px; 
 }
 
 /* ==========================================================================
@@ -313,7 +309,6 @@
     justify-content: space-between;
 }
 
-/* Circular Buttons */
 .wr-audio-btn {
     color: #fff;
     background: rgba(255, 255, 255, 0.1);
@@ -331,7 +326,7 @@
 }
 
 .wr-audio-btn:hover {
-    background: #2271b1; /* WordPress Blue */
+    background: #2271b1; 
     color: #fff;
     transform: scale(1.1);
 }
@@ -341,7 +336,6 @@
     box-shadow: 0 0 10px rgba(34, 113, 177, 0.5);
 }
 
-/* Small secondary buttons (Shuffle/Playlist) */
 .wr-audio-btn.small {
     width: 28px;
     height: 28px;
@@ -361,7 +355,6 @@
     box-shadow: none;
 }
 
-/* Audio Element */
 #wr-audio-element {
     flex: 1;
     height: 32px;
@@ -371,32 +364,62 @@
 }
 
 /* ==========================================================================
-   7. MOBILE RESPONSIVENESS
+   7. RESPONSIVE INTELLIGENCE
    ========================================================================== */
 
-@media (max-width: 480px) {
+/* A. MOBILE PORTRAIT (The Center Card) */
+@media (max-width: 480px) and (orientation: portrait) {
     #tbf-world-ruler-container {
-        /* Default safety position */
         bottom: 15px; 
         right: 15px;
+        left: 15px; 
+        width: auto;
+        border-radius: 16px;
     }
 
     #tbf-wr-gadget {
-        width: 90vw; /* Almost full width */
-        height: 65vh; /* Taller on mobile */
-        max-width: 350px;
+        width: 100%;
+        height: 260px; /* Short for portrait */
+        max-width: none;
+        border-radius: 16px;
     }
 
-    .wr-audio-btn {
-        width: 34px; 
-        height: 34px; /* Larger touch targets */
+    .wr-header { padding: 8px 12px; }
+    .wr-title { font-size: 11px; }
+    .wr-player { padding: 10px 12px; }
+    .wr-audio-btn { width: 30px; height: 30px; }
+}
+
+/* B. MOBILE LANDSCAPE (The "Corner Pocket" - NEW) */
+/* Targets Short Screens (Landscape Phones) */
+@media (max-height: 500px) {
+    #tbf-world-ruler-container {
+        /* Detach from center, stick to corner */
+        left: auto !important; 
+        right: 10px !important;
+        bottom: 10px !important;
+        top: auto !important;
+        width: auto !important;
     }
+
+    #tbf-wr-gadget {
+        width: 320px; /* Narrow card width */
+        height: 85vh; /* Fit vertical screen comfortably */
+        max-height: 280px; /* Never exceed 280px tall */
+        border-radius: 12px;
+    }
+
+    /* Micro UI for Landscape */
+    .wr-header { padding: 6px 10px; min-height: 30px; }
+    .wr-title { font-size: 10px; }
+    .wr-controls .dashicons { font-size: 16px; width: 16px; height: 16px; }
     
-    /* Hide detailed controls if space is tight */
-    .wr-audio-btn.small {
-        width: 30px;
-        height: 30px;
-    }
+    .wr-stage { min-height: 60px; } /* Squeeze visual */
+    
+    .wr-player { padding: 6px 10px; }
+    .wr-track-info { font-size: 10px; margin-bottom: 4px; }
+    .wr-audio-btn { width: 26px; height: 26px; }
+    #wr-audio-element { height: 24px; }
 }
 
 /* ==========================================================================
@@ -410,7 +433,7 @@
     height: 100% !important;
     border-radius: 0;
     transform: none !important;
-    z-index: 9999999; /* Top of everything */
+    z-index: 9999999;
 }
 
 #tbf-world-ruler-container.maximized #tbf-wr-gadget {
@@ -418,8 +441,9 @@
     height: 100%;
     border-radius: 0;
     border: none;
+    max-height: none; /* Override landscape limit */
 }
 
 #tbf-world-ruler-container.maximized .wr-stage {
-    flex: 1; /* Consume all vertical space */
+    flex: 1; 
 }

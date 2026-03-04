@@ -1,28 +1,33 @@
 /**
  * File: assets/js/world-ruler.js
- * Version: 6.9.5 (Manual Sort Enforcement & Complete Engine)
+ * Version: 6.9.5.9 (Gravity Tether - Orientation Fix)
+ * Description: Handles the floating gadget, audio player, visual slideshow, and network persistence.
  */
 (function($) {
     'use strict';
 
-    if (typeof tbf_wr_data === 'undefined') return;
+    // 1. DATA VALIDATION
+    if (typeof tbf_wr_data === 'undefined') {
+        console.error('Princess Keilah: Configuration data missing.');
+        return;
+    }
 
-    // --- CONFIGURATION & STATE ---
-    const STATE_KEY = 'tbf_wr_state';
+    // 2. CONFIGURATION & STATE
+    const STATE_KEY = 'tbf_wr_state_v6959_pk'; // Bumped key for clean slate
     
-    // --- DOM ELEMENTS ---
+    // 3. DOM ELEMENTS
     const container = $('#tbf-world-ruler-container');
     const header = $('.wr-header');
     const audio = document.getElementById('wr-audio-element');
     const slideLayer = $('#wr-slideshow-layer');
     const trackInfo = $('.wr-track-info');
     
-    // Overlay Elements
+    // Overlay Elements (Playlist UI)
     const playlistOverlay = $('#wr-playlist-overlay');
     const overlayContent = $('#wr-overlay-content');
     const backBtn = $('#wr-back-playlists');
     
-    // --- DATA STORE ---
+    // 4. RUNTIME VARIABLES
     let allPlaylists = tbf_wr_data.playlists || [];
     let currentPlaylistIdx = 0; 
     let currentTrackIdx = 0;    
@@ -34,22 +39,23 @@
     let slideTimer = null;
     let slideHistory = []; 
     let historyIdx = -1;
+    
+    let autoStartBlocked = false; 
 
     // ==========================================================================
-    // 1. DRAGGABLE PHYSICS ENGINE
+    // MODULE A: DRAGGABLE PHYSICS ENGINE
+    // Handles mouse/touch drag + Window Resize Safety
     // ==========================================================================
     function makeDraggable(el) {
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
 
         const onStart = (e) => {
-            // Disable drag if maximized or if clicking controls
             if (container.hasClass('maximized')) return;
             if ($(e.target).closest('.wr-controls, .wr-stage, .wr-player').length) return;
 
             isDragging = true;
             
-            // Normalize Touch vs Mouse
             const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
             const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
 
@@ -60,7 +66,7 @@
             initialLeft = rect.left;
             initialTop = rect.top;
 
-            // Switch from bottom/right positioning to top/left for dragging
+            // Switch to absolute positioning for smooth drag
             container.css({ 
                 bottom: 'auto', 
                 right: 'auto', 
@@ -71,7 +77,7 @@
 
         const onMove = (e) => {
             if (!isDragging) return;
-            e.preventDefault(); // Prevent scrolling while dragging
+            e.preventDefault(); 
 
             const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
             const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
@@ -79,16 +85,17 @@
             const dx = clientX - startX;
             const dy = clientY - startY;
 
-            container.css({
-                left: (initialLeft + dx) + 'px',
-                top: (initialTop + dy) + 'px'
+            container.css({ 
+                left: (initialLeft + dx) + 'px', 
+                top: (initialTop + dy) + 'px' 
             });
         };
 
         const onEnd = () => {
             if (isDragging) {
                 isDragging = false;
-                saveState(); // Save new position
+                ensureOnScreen(); // Snap back if dragged too far
+                saveState(); 
             }
         };
 
@@ -96,27 +103,65 @@
         $(document).on('mousemove touchmove', onMove);
         $(document).on('mouseup touchend', onEnd);
     }
+    
+    // THE GRAVITY TETHER: Ensures player never flies off screen
+    function ensureOnScreen() {
+        if (container.hasClass('maximized')) return;
 
-    // Initialize Drag
+        const rect = container[0].getBoundingClientRect();
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+        let newLeft = rect.left;
+        let newTop = rect.top;
+        let needsFix = false;
+
+        // Check Right Edge
+        if (rect.right > winW) { newLeft = winW - rect.width - 20; needsFix = true; }
+        // Check Left Edge
+        if (rect.left < 0) { newLeft = 20; needsFix = true; }
+        // Check Bottom Edge
+        if (rect.bottom > winH) { newTop = winH - rect.height - 20; needsFix = true; }
+        // Check Top Edge
+        if (rect.top < 0) { newTop = 20; needsFix = true; }
+
+        if (needsFix) {
+            container.css({ top: newTop + 'px', left: newLeft + 'px' });
+            saveState(); // Update storage with safe coordinates
+        }
+    }
+
+    // Listen for Rotation or Resize
+    $(window).on('resize orientationchange', function() {
+        // Small timeout to allow browser layout to settle after rotation
+        setTimeout(ensureOnScreen, 100);
+        setTimeout(ensureOnScreen, 500); // Double tap for safety
+    });
+    
     makeDraggable(container);
 
     // ==========================================================================
-    // 2. STATE PERSISTENCE
+    // MODULE B: STATE PERSISTENCE (SMART RESUME)
     // ==========================================================================
     function saveState() {
+        if (!audio) return;
+        
         const rect = container[0].getBoundingClientRect();
+        const isActuallyPlaying = !audio.paused || autoStartBlocked;
+
         const state = {
             isOpen: container.hasClass('expanded'),
             isMaximized: container.hasClass('maximized'),
-            isPlaying: !audio.paused,
+            isPlaying: isActuallyPlaying, 
             currentTime: audio.currentTime,
             plIdx: currentPlaylistIdx,
             trIdx: currentTrackIdx,
             volume: audio.volume,
             isShuffle: isShuffle,
-            // Only save position if NOT maximized to avoid saving 0,0
+            timestamp: Date.now(), 
+            // Only save position if NOT maximized
             pos: !container.hasClass('maximized') ? { top: rect.top, left: rect.left } : loadState()?.pos
         };
+        
         localStorage.setItem(STATE_KEY, JSON.stringify(state));
     }
 
@@ -126,13 +171,14 @@
         try { return JSON.parse(raw); } catch (e) { return null; }
     }
 
-    window.addEventListener('beforeunload', saveState);
+    $(window).on('beforeunload pagehide visibilitychange', saveState);
+    setInterval(saveState, 4000); 
 
     // ==========================================================================
-    // 3. QUEEN KEILAH AUDIO ENGINE
+    // MODULE C: PRINCESS KEILAH AUDIO ENGINE
     // ==========================================================================
     
-    function loadPlaylist(idx, startTrackIdx = 0, autoPlay = false) {
+    function loadPlaylist(idx, startTrackIdx = 0, autoPlay = false, resumeTime = 0) {
         currentPlaylistIdx = idx;
         const pl = allPlaylists[idx];
         
@@ -141,13 +187,10 @@
             return;
         }
 
-        // If playlist tracks are just IDs, we need to resolve them to URLs
         if (pl.resolved) {
-            setupQueue(pl.resolved, startTrackIdx, autoPlay);
+            setupQueue(pl.resolved, startTrackIdx, autoPlay, resumeTime);
         } else {
             trackInfo.text("Loading Playlist...");
-            
-            // Handle array vs CSV string
             const idsStr = Array.isArray(pl.tracks) ? pl.tracks.join(',') : pl.tracks;
             
             $.post(tbf_wr_data.ajax_url, {
@@ -155,8 +198,8 @@
                 ids: idsStr
             }, function(res) {
                 if (res.success && res.data.length > 0) {
-                    pl.resolved = res.data; // Cache result
-                    setupQueue(pl.resolved, startTrackIdx, autoPlay);
+                    pl.resolved = res.data; 
+                    setupQueue(pl.resolved, startTrackIdx, autoPlay, resumeTime);
                 } else {
                     trackInfo.text("Audio Unavailable");
                 }
@@ -166,22 +209,20 @@
         }
     }
 
-    function setupQueue(tracks, startIdx, autoPlay) {
+    function setupQueue(tracks, startIdx, autoPlay, resumeTime = 0) {
         if (isShuffle) {
-            // Create a shuffled copy
             activeQueue = [...tracks].sort(() => Math.random() - 0.5);
             currentTrackIdx = 0; 
         } else {
             activeQueue = tracks;
             currentTrackIdx = startIdx;
         }
-        playTrack(currentTrackIdx, 0, autoPlay);
+        playTrack(currentTrackIdx, resumeTime, autoPlay);
     }
 
     function playTrack(index, startTime = 0, autoPlay = true) {
         if (activeQueue.length === 0) return;
         
-        // Loop logic
         if (index < 0) index = activeQueue.length - 1;
         if (index >= activeQueue.length) index = 0;
         
@@ -193,68 +234,65 @@
             return;
         }
 
-        if (audio.src !== track.url) {
+        if (audio.src !== track.url || startTime > 0) {
             audio.src = track.url;
+            audio.currentTime = startTime; 
         }
         
-        audio.currentTime = startTime;
         trackInfo.text(track.title || "Track " + track.id);
 
         if (autoPlay) {
             const promise = audio.play();
             if (promise !== undefined) {
-                promise.catch(e => { console.log("Autoplay blocked by browser policy"); });
+                promise.then(() => {
+                    autoStartBlocked = false;
+                }).catch(e => { 
+                    console.log("Princess Keilah: Autoplay blocked. Waiting for interaction.");
+                    autoStartBlocked = true;
+                    trackInfo.text("Click anywhere to play music");
+                });
             }
-        }
-        
-        // Refresh Overlay UI if open to show active track
-        if(playlistOverlay.hasClass('active') && backBtn.is(':visible')) {
-            renderTrackListUI(activeQueue); 
         }
     }
 
-    // Audio Event Listeners
-    audio.onended = function() { 
-        playTrack(currentTrackIdx + 1); 
-    };
-
-    $('#wr-prev-track').click(function() { 
-        playTrack(currentTrackIdx - 1); 
+    // Auto-Start Recovery
+    $(document).one('click keydown', function() {
+        if (autoStartBlocked && audio.paused) {
+            audio.play().then(() => {
+                autoStartBlocked = false;
+                trackInfo.text(activeQueue[currentTrackIdx].title); 
+            });
+        }
     });
 
-    $('#wr-next-track').click(function() { 
-        playTrack(currentTrackIdx + 1); 
-    });
+    audio.onended = function() { playTrack(currentTrackIdx + 1); };
+    $('#wr-prev-track').click(function() { playTrack(currentTrackIdx - 1); });
+    $('#wr-next-track').click(function() { playTrack(currentTrackIdx + 1); });
     
     $('#wr-shuffle-toggle').click(function() {
         isShuffle = !isShuffle;
         $(this).toggleClass('active', isShuffle);
-        // Reshuffle current playlist starting from 0
         loadPlaylist(currentPlaylistIdx, 0, !audio.paused);
     });
 
     // ==========================================================================
-    // 4. VISUAL SLIDESHOW ENGINE
+    // MODULE D: VISUAL SLIDESHOW ENGINE
     // ==========================================================================
 
     function fetchMedia() {
-        if (mediaPool.length > 0) return; // Already loaded
+        if (mediaPool.length > 0) return; 
 
         const params = {
             action: 'tbfnmi_list',
-            per_page: 100, // Fetch more to allow for reordering
+            per_page: 100, 
             orderby: 'rand',
             mime: 'image',
-            origin_blog_id: 0 // Force network query
+            origin_blog_id: 0 
         };
-
-        // Custom Sort Logic for "Specific Images"
+        
         let customOrderIds = [];
         if (tbf_wr_data.mode === 'specific' && tbf_wr_data.specific_ids) { 
             params.include = tbf_wr_data.specific_ids; 
-            // DO NOT randomize if we want specific order.
-            // But AJAX query doesn't support 'ordered' yet in SQL.
-            // We request data, then sort in JS below.
             params.orderby = 'date'; 
             customOrderIds = tbf_wr_data.specific_ids.split(',').map(Number);
         }
@@ -262,16 +300,13 @@
         $.get(tbf_wr_data.ajax_url, params, function(res) {
             if(res.success && res.data.items && res.data.items.length > 0) {
                 mediaPool = res.data.items;
-
-                // --- APPLY MANUAL SORT IF SPECIFIC ---
+                
                 if (customOrderIds.length > 0) {
-                    // Sort mediaPool to match customOrderIds
                     mediaPool.sort(function(a, b) {
                         return customOrderIds.indexOf(parseInt(a.attachment_id)) - customOrderIds.indexOf(parseInt(b.attachment_id));
                     });
                 }
-                // -------------------------------------
-
+                
                 $('#wr-loading').hide();
                 nextSlide();
             } else {
@@ -283,25 +318,21 @@
     function showImage(item) {
         if (!item) return;
         
-        const img = $('<img class="wr-slide">').attr('src', item.url)
+        const img = $('<img class="wr-slide">')
+            .attr('src', item.url)
             .attr('data-id', item.attachment_id)
             .attr('data-blog', item.blog_id);
         
         slideLayer.append(img);
-        
-        // Force reflow for transition
         img[0].offsetWidth; 
         img.addClass('active');
 
-        // Cleanup DOM to keep it light
         if(slideLayer.children().length > 2) {
             slideLayer.children().first().remove();
         }
 
-        // Double Click to Visit Page
         img.on('dblclick', function() {
-            const url = tbf_wr_data.home_url + 'image/' + $(this).data('blog') + '-' + $(this).data('id') + '/';
-            window.location.href = url;
+            window.location.href = tbf_wr_data.home_url + 'image/' + $(this).data('blog') + '-' + $(this).data('id') + '/';
         });
     }
 
@@ -309,33 +340,25 @@
         clearTimeout(slideTimer);
         if (mediaPool.length === 0) return;
 
-        // History Logic (Back button support)
         if (historyIdx < slideHistory.length - 1) {
             historyIdx++;
             showImage(slideHistory[historyIdx]);
         } else {
-            // New Image Logic
             let item;
-            
             if (tbf_wr_data.mode === 'specific') {
-                // Sequential Loop for specific
-                // Use history length as index module pool length
                 const nextIdx = slideHistory.length % mediaPool.length;
                 item = mediaPool[nextIdx];
             } else {
-                // Random
                 item = mediaPool[Math.floor(Math.random() * mediaPool.length)];
             }
 
             slideHistory.push(item);
             historyIdx = slideHistory.length - 1;
             
-            // Cap history to prevent memory leak
-            if (slideHistory.length > 50) {
-                slideHistory.shift();
-                historyIdx--;
+            if (slideHistory.length > 50) { 
+                slideHistory.shift(); 
+                historyIdx--; 
             }
-            
             showImage(item);
         }
         slideTimer = setTimeout(nextSlide, tbf_wr_data.duration);
@@ -347,18 +370,15 @@
             historyIdx--;
             showImage(slideHistory[historyIdx]);
         }
-        // Restart timer after interaction
         slideTimer = setTimeout(nextSlide, tbf_wr_data.duration);
     }
 
-    // Manual Slide Controls
     $('.wr-next-slide').click(function(e) { e.stopPropagation(); nextSlide(); });
     $('.wr-prev-slide').click(function(e) { e.stopPropagation(); prevSlide(); });
 
     // ==========================================================================
-    // 5. PLAYLIST OVERLAY UI
+    // MODULE E: OVERLAY UI (PLAYLIST BROWSER)
     // ==========================================================================
-
     $('#wr-playlist-toggle').click(function() { 
         renderOverlayPlaylists(); 
         playlistOverlay.addClass('active'); 
@@ -378,7 +398,7 @@
         
         let html = '';
         if(allPlaylists.length === 0) {
-            html = '<div style="padding:20px; color:#888; text-align:center;">No playlists found.</div>';
+            html = '<div style="padding:20px; color:#888;">No playlists found.</div>';
         } else {
             allPlaylists.forEach((pl, i) => {
                 const trackCount = pl.tracks ? pl.tracks.length : 0;
@@ -402,7 +422,7 @@
         $('.wr-overlay-title').text(pl.name);
         
         if (!pl.resolved) {
-            overlayContent.html('<div style="color:#888; padding:20px; text-align:center;">Loading tracks...</div>');
+            overlayContent.html('<div style="color:#888; padding:20px;">Loading tracks...</div>');
             const idsStr = Array.isArray(pl.tracks) ? pl.tracks.join(',') : pl.tracks;
             
             $.post(tbf_wr_data.ajax_url, { 
@@ -423,20 +443,13 @@
 
     function renderTrackListUI(tracks) {
         let html = '';
-        if(tracks.length === 0) html = '<div style="padding:20px; color:#888;">Empty Playlist.</div>';
-        else {
-            tracks.forEach((t, i) => {
-                let activeClass = '';
-                const currentPlaying = activeQueue[currentTrackIdx];
-                if (currentPlaying && currentPlaying.id === t.id && !audio.paused) {
-                    activeClass = 'active';
-                }
-
-                html += `<div class="wr-pl-track ${activeClass}" onclick="tbfPlayItem(${i})">
-                            <span>${t.title}</span>
-                         </div>`;
-            });
-        }
+        tracks.forEach((t, i) => {
+            let activeClass = (activeQueue[currentTrackIdx] && activeQueue[currentTrackIdx].id === t.id) ? 'active' : '';
+            
+            html += `<div class="wr-pl-track ${activeClass}" onclick="tbfPlayItem(${i})">
+                        <span>${t.title}</span>
+                     </div>`;
+        });
         overlayContent.html(html);
 
         window.tbfPlayItem = function(i) {
@@ -448,35 +461,46 @@
     }
 
     // ==========================================================================
-    // 6. INITIALIZATION & RESTORE STATE
+    // MODULE F: INITIALIZATION BOOTSTRAP
     // ==========================================================================
+    
     const saved = loadState();
     
-    if (saved) {
-        // Restore Position
+    // Check Freshness (24h)
+    const isFresh = saved && saved.timestamp && (Date.now() - saved.timestamp < 86400000);
+
+    if (saved && isFresh) {
+        // Restore Position with Validity Check
         if(saved.pos && saved.pos.top) {
-            container.css({ 
-                top: saved.pos.top + 'px', 
-                left: saved.pos.left + 'px', 
-                bottom: 'auto', 
-                right: 'auto' 
-            });
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            // Sanity check: Ensure it's somewhat on screen
+            if (saved.pos.left < winW - 50 && saved.pos.top < winH - 50) {
+                container.css({ 
+                    top: saved.pos.top + 'px', 
+                    left: saved.pos.left + 'px', 
+                    bottom: 'auto', 
+                    right: 'auto' 
+                });
+            } else {
+                // If off-screen (e.g. orientation change while closed), reset
+                container.css({ top: '', left: '', bottom: '20px', right: '20px' });
+            }
         }
 
-        // Restore Volume & Shuffle
         audio.volume = saved.volume !== undefined ? saved.volume : 0.5;
         isShuffle = saved.isShuffle || false;
         if(isShuffle) $('#wr-shuffle-toggle').addClass('active');
         
-        // Restore Open/Play State
         if (saved.isOpen) {
             container.addClass('expanded');
             if(saved.isMaximized) container.addClass('maximized');
-            fetchMedia();
-            loadPlaylist(saved.plIdx || 0, saved.trIdx || 0, saved.isPlaying);
-            if(saved.isPlaying) setTimeout(() => { audio.currentTime = saved.currentTime; }, 200);
+            fetchMedia(); 
+            
+            const resumeTime = saved.currentTime || 0;
+            loadPlaylist(saved.plIdx || 0, saved.trIdx || 0, saved.isPlaying, resumeTime);
+            
         } else if ((tbf_wr_data.open_default || tbf_wr_data.auto_start) && !localStorage.getItem(STATE_KEY)) {
-            // First visit / auto-start
             if(tbf_wr_data.open_default) container.addClass('expanded');
             fetchMedia();
             loadPlaylist(0, 0, !!tbf_wr_data.auto_start);
@@ -489,14 +513,17 @@
         loadPlaylist(0, 0, !!tbf_wr_data.auto_start);
     }
 
+    // Force "On Screen" check once at startup
+    ensureOnScreen();
+
     // ==========================================================================
-    // 7. MAIN UI EVENTS
+    // MODULE G: MAIN UI EVENTS
     // ==========================================================================
 
     $('#tbf-wr-tab').click(function() {
         container.addClass('expanded');
         fetchMedia();
-        if (audio.src) audio.play();
+        if (audio.paused && audio.src) audio.play();
     });
 
     $('#wr-minimize').click(function() {
@@ -506,15 +533,15 @@
     $('#wr-close').click(function() {
         container.removeClass('expanded maximized');
         audio.pause();
-        audio.currentTime = 0;
-        localStorage.removeItem(STATE_KEY);
-        container.css({ top: '', left: '', bottom: '20px', right: '20px' });
+        audio.currentTime = 0; 
+        localStorage.removeItem(STATE_KEY); 
+        container.css({ top: '', left: '', bottom: '20px', right: '20px' }); 
     });
 
     $('#wr-maximize').click(function() {
         container.toggleClass('maximized');
         if(container.hasClass('maximized')) {
-            container.attr('style', ''); // Clear inline drag styles
+            container.attr('style', ''); 
         } else if(saved && saved.pos) {
             container.css({ 
                 top: saved.pos.top + 'px', 

@@ -1,20 +1,21 @@
 <?php
 /**
- * Plugin Name:       TBF Network Media Index – Multisite Shared Media Library
+ * Plugin Name:       TBF Big King Media: Multisite Shared Library + Photofall
  * Plugin URI:        https://trottbaileyfamily.com/tbf-network-media-index
- * Description:       The ultimate media library enhancement. Includes "Photofall" - a Pinterest-style media feed, Frontend Uploader, and SEO Interlinking. Works on Multisite and Single Sites.
- * Version:           6.9.5
+ * Description:       The ultimate media library enhancement. Includes "Photofall", "Princess Keilah Studio", and frontend tools.
+ * Version:           6.9.5.11
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Sherika Trott Bailey, Kimroy Bailey, Trott Bailey Family
  * Author URI:        https://trottbaileyfamily.com
  * Text Domain:       tbf-network-media-index
  * License:           GPL-2.0-or-later
+ * Network:           true
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-define('TBFNMI_VER', '6.9.5');
+define('TBFNMI_VER', '6.9.5.11');
 define('TBFNMI_DIR', plugin_dir_path(__FILE__));
 define('TBFNMI_URL', plugin_dir_url(__FILE__));
 
@@ -61,21 +62,20 @@ class TBFNMI_Network_Media_Index {
         }
     }
 
-    // 2. Network Dashboard (Indexer UI)
+    // 2. Network Dashboard
     if ( (is_multisite() && is_network_admin()) || (!is_multisite() && is_admin()) ) {
         require_once TBFNMI_DIR . 'includes/admin/class-tbfnmi-network-dashboard.php';
         TBFNMI_Network_Dashboard::init();
     }
 
-    // 3. Subsite Settings & Features (Photofall, World Ruler, Uploader)
-    // ALWAYS load these on single sites or subsites so the menus appear.
+    // 3. Subsite Settings & Features
     require_once TBFNMI_DIR . 'includes/admin/class-tbfnmi-subsite-settings.php';
     TBFNMI_Subsite_Settings::init();
 
     require_once TBFNMI_DIR . 'includes/photofall/class-tbfnmi-photofall-router.php';
     TBFNMI_Photofall_Router::init();
 
-    // 4. World Ruler Engine
+    // 4. World Ruler Engine (Princess Keilah)
     require_once TBFNMI_DIR . 'includes/world-ruler/class-tbfnmi-world-ruler.php';
     TBFNMI_World_Ruler::init();
 
@@ -90,7 +90,6 @@ class TBFNMI_Network_Media_Index {
   }
 
   public static function enqueue_core_assets($hook) {
-    // Load on Post Edit, Page Edit, Upload, OR our Settings Page
     $screen = get_current_screen();
     $valid_bases = ['post', 'page', 'upload', 'settings_page_tbfnmi-photofall-settings'];
     
@@ -99,7 +98,6 @@ class TBFNMI_Network_Media_Index {
     wp_enqueue_media();
     wp_enqueue_style('tbfnmi-admin', TBFNMI_URL . 'assets/css/admin.css', [], TBFNMI_VER);
     
-    // Load the Network Media Modal Logic
     wp_enqueue_script(
       'tbfnmi-modal',
       TBFNMI_URL . 'assets/js/modal.js',
@@ -120,7 +118,7 @@ class TBFNMI_Network_Media_Index {
   }
 
   public static function add_media_tab_string($strings) {
-    $label = is_multisite() ? __('Network Media', 'tbf-network-media-index') : __('Photofall Library', 'tbf-network-media-index');
+    $label = is_multisite() ? __('Big King Media', 'tbf-network-media-index') : __('Photofall Library', 'tbf-network-media-index');
     $strings['tbfNetworkMediaTitle'] = $label;
     return $strings;
   }
