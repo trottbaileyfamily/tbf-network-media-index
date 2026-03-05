@@ -1,14 +1,14 @@
 <?php
 /*
- * File: includes/class-tbfnmi-placeholder.php
+ * File: includes/class-tbfbkm-placeholder.php
  * Version: 2.0.0
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Placeholder {
+class TBFBKM_Placeholder {
 
-  const OPT_KEY = 'tbfnmi_placeholder_attachment_id';
+  const OPT_KEY = 'tbfbkm_placeholder_attachment_id';
 
   public static function init() {
     if ( is_admin() ) {
@@ -25,7 +25,7 @@ class TBFNMI_Placeholder {
     $existing = self::get_id();
     if ( $existing ) return;
 
-    $upload = wp_upload_bits('tbfnmi-placeholder.png', null, self::tiny_png_bytes());
+    $upload = wp_upload_bits('tbfbkm-placeholder.png', null, self::tiny_png_bytes());
     if ( ! empty($upload['error']) || empty($upload['file']) ) return;
 
     $file = $upload['file'];
@@ -57,3 +57,4 @@ class TBFNMI_Placeholder {
     );
   }
 }
+

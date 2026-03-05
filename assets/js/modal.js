@@ -1,40 +1,40 @@
-/* global jQuery, _, Backbone, wp, tbfnmi_modal_data */
+﻿/* global jQuery, _, Backbone, wp, tbfbkm_modal_data */
 /* =========================================================
    File: assets/js/modal.js
    Version: 6.9.24 (Audio/Video Thumbnail Badges)
    ========================================================= */
 (function ($) {
-    if (!window.wp || !wp.media || !window.tbfnmi_modal_data) return;
+    if (!window.wp || !wp.media || !window.tbfbkm_modal_data) return;
 
     // --- 1. AJAX Helper ---
     const Ajax = {
         list(params) { 
             return $.ajax({ 
-                url: tbfnmi_modal_data.ajax, 
+                url: tbfbkm_modal_data.ajax, 
                 method: 'GET', 
                 cache: false, 
                 dataType: 'json', 
-                data: Object.assign({ action: 'tbfnmi_list', nonce: tbfnmi_modal_data.nonce }, params || {}) 
+                data: Object.assign({ action: 'tbfbkm_list', nonce: tbfbkm_modal_data.nonce }, params || {}) 
             }); 
         },
         sites() { 
             return $.ajax({ 
-                url: tbfnmi_modal_data.ajax, 
+                url: tbfbkm_modal_data.ajax, 
                 method: 'GET', 
                 cache: false, 
                 dataType: 'json', 
-                data: { action: 'tbfnmi_sites', nonce: tbfnmi_modal_data.nonce } 
+                data: { action: 'tbfbkm_sites', nonce: tbfbkm_modal_data.nonce } 
             }); 
         },
         proxy(originBlogId, originAttId, url, title, mime) { 
             return $.ajax({ 
-                url: tbfnmi_modal_data.ajax, 
+                url: tbfbkm_modal_data.ajax, 
                 method: 'POST', 
                 cache: false, 
                 dataType: 'json', 
                 data: { 
-                    action: 'tbfnmi_proxy', 
-                    nonce: tbfnmi_modal_data.nonce, 
+                    action: 'tbfbkm_proxy', 
+                    nonce: tbfbkm_modal_data.nonce, 
                     origin_blog_id: originBlogId, 
                     origin_attachment_id: originAttId, 
                     url: url || '', 
@@ -45,11 +45,11 @@
         },
         proxyUrl(payload) { 
             return $.ajax({ 
-                url: tbfnmi_modal_data.ajax, 
+                url: tbfbkm_modal_data.ajax, 
                 method: 'POST', 
                 cache: false, 
                 dataType: 'json', 
-                data: Object.assign({ action: 'tbfnmi_proxy_url', nonce: tbfnmi_modal_data.nonce }, payload || {}) 
+                data: Object.assign({ action: 'tbfbkm_proxy_url', nonce: tbfbkm_modal_data.nonce }, payload || {}) 
             }); 
         }
     };
@@ -80,7 +80,7 @@
         const selection = this.frame.state().get('selection');
         if (selection) selection.reset([]);
         if (this.viewInstance) {
-            this.viewInstance.$('.tbfnmi-item').removeClass('selected details is-pending');
+            this.viewInstance.$('.tbfbkm-item').removeClass('selected details is-pending');
             this.viewInstance.hideSidebar();
         }
     };
@@ -94,7 +94,7 @@
         if (!multi) {
             this.selectedMap = {};
             if (selection) selection.reset([]);
-            if (this.viewInstance) this.viewInstance.$('.tbfnmi-item').removeClass('selected details');
+            if (this.viewInstance) this.viewInstance.$('.tbfbkm-item').removeClass('selected details');
         }
 
         if ($(el).hasClass('selected')) {
@@ -160,21 +160,21 @@
 
     // --- 3. The View (Grid UI) ---
     const NetworkMediaView = wp.media.View.extend({
-        className: 'tbfnmi-view',
+        className: 'tbfbkm-view',
         events: {
-            'input .tbfnmi-search-input': 'onSearchInput',
+            'input .tbfbkm-search-input': 'onSearchInput',
             
-            'click .tbfnmi-tool-btn.type-filter': 'toggleTypeFilter',
-            'click .tbfnmi-tool-btn.refresh': 'resetAndRefresh',
-            'click .tbfnmi-tool-btn.shuffle': 'shuffle',
-            'click .tbfnmi-tool-btn.captions': 'toggleCaptions',
-            'click .tbfnmi-tool-btn.sidebar': 'toggleSidebar',
+            'click .tbfbkm-tool-btn.type-filter': 'toggleTypeFilter',
+            'click .tbfbkm-tool-btn.refresh': 'resetAndRefresh',
+            'click .tbfbkm-tool-btn.shuffle': 'shuffle',
+            'click .tbfbkm-tool-btn.captions': 'toggleCaptions',
+            'click .tbfbkm-tool-btn.sidebar': 'toggleSidebar',
             
-            'click .tbfnmi-load-more': 'loadMore',
-            'change .tbfnmi-origin': 'refresh',
-            'click .tbfnmi-item': 'onItemClick',
+            'click .tbfbkm-load-more': 'loadMore',
+            'change .tbfbkm-origin': 'refresh',
+            'click .tbfbkm-item': 'onItemClick',
             
-            'click .tbfnmi-set-audio-thumb': 'onSetAudioThumb'
+            'click .tbfbkm-set-audio-thumb': 'onSetAudioThumb'
         },
         initialize(opts) {
             this.controller = opts.controller;
@@ -199,61 +199,61 @@
         render() {
             this.$el.html(
                 '<div style="display: flex; flex-direction: column; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #fff;">' +
-                    '<div class="tbfnmi-compact-toolbar">' +
+                    '<div class="tbfbkm-compact-toolbar">' +
                         
-                        '<div class="tbfnmi-site-select-wrap">' +
-                             '<select class="tbfnmi-origin"><option value="">All Sites</option></select>' +
+                        '<div class="tbfbkm-site-select-wrap">' +
+                             '<select class="tbfbkm-origin"><option value="">All Sites</option></select>' +
                         '</div>' +
 
-                        '<div class="tbfnmi-tools-scroll">' +
+                        '<div class="tbfbkm-tools-scroll">' +
                         
-                            '<div class="tbfnmi-search-wrap">' +
-                                '<input type="search" class="tbfnmi-search-input" placeholder="Search" />' +
+                            '<div class="tbfbkm-search-wrap">' +
+                                '<input type="search" class="tbfbkm-search-input" placeholder="Search" />' +
                             '</div>' +
                             
-                            '<div class="tbfnmi-divider"></div>' +
+                            '<div class="tbfbkm-divider"></div>' +
 
-                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="image" title="Images"><span class="dashicons dashicons-format-image"></span></button>' +
-                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="video" title="Videos"><span class="dashicons dashicons-video-alt3"></span></button>' +
-                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="audio" title="Audio"><span class="dashicons dashicons-format-audio"></span></button>' +
-                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="application" title="Documents"><span class="dashicons dashicons-media-document"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn type-filter" data-type="image" title="Images"><span class="dashicons dashicons-format-image"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn type-filter" data-type="video" title="Videos"><span class="dashicons dashicons-video-alt3"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn type-filter" data-type="audio" title="Audio"><span class="dashicons dashicons-format-audio"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn type-filter" data-type="application" title="Documents"><span class="dashicons dashicons-media-document"></span></button>' +
                             
-                            '<div class="tbfnmi-divider"></div>' +
+                            '<div class="tbfbkm-divider"></div>' +
 
-                            '<button type="button" class="tbfnmi-tool-btn refresh" title="Refresh"><span class="dashicons dashicons-update"></span></button>' +
-                            '<button type="button" class="tbfnmi-tool-btn shuffle" title="Shuffle"><span class="dashicons dashicons-randomize"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn refresh" title="Refresh"><span class="dashicons dashicons-update"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn shuffle" title="Shuffle"><span class="dashicons dashicons-randomize"></span></button>' +
                             
-                            '<div class="tbfnmi-divider"></div>' +
+                            '<div class="tbfbkm-divider"></div>' +
 
-                            '<button type="button" class="tbfnmi-tool-btn captions" title="Toggle Captions"><span class="dashicons dashicons-text"></span></button>' +
-                            '<button type="button" class="tbfnmi-tool-btn sidebar active" title="Toggle Details"><span class="dashicons dashicons-columns"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn captions" title="Toggle Captions"><span class="dashicons dashicons-text"></span></button>' +
+                            '<button type="button" class="tbfbkm-tool-btn sidebar active" title="Toggle Details"><span class="dashicons dashicons-columns"></span></button>' +
                         
                         '</div>' + 
 
-                        '<span class="tbfnmi-status"></span>' +
+                        '<span class="tbfbkm-status"></span>' +
                     '</div>' +
                     
                     '<div style="flex: 1; display: flex; overflow: hidden; position: relative;">' +
                         '<div style="flex: 1; overflow-y: auto; background: #f0f0f1;">' +
-                            '<ul class="attachments tbfnmi-grid"></ul>' +
-                            '<div class="tbfnmi-load-more-wrap">' +
-                                '<button type="button" class="button tbfnmi-load-more" style="display:none;">Load more</button>' +
+                            '<ul class="attachments tbfbkm-grid"></ul>' +
+                            '<div class="tbfbkm-load-more-wrap">' +
+                                '<button type="button" class="button tbfbkm-load-more" style="display:none;">Load more</button>' +
                             '</div>' +
                         '</div>' +
-                        '<div class="tbfnmi-sidebar" style="display: none; width: 300px; flex-shrink: 0; background: #f3f4f5; border-left: 1px solid #ccd0d4; padding: 16px; overflow-y: auto;"></div>' +
+                        '<div class="tbfbkm-sidebar" style="display: none; width: 300px; flex-shrink: 0; background: #f3f4f5; border-left: 1px solid #ccd0d4; padding: 16px; overflow-y: auto;"></div>' +
                     '</div>' +
                 '</div>'
             );
-            this.$grid = this.$('.tbfnmi-grid');
-            this.$status = this.$('.tbfnmi-status');
-            this.$origin = this.$('.tbfnmi-origin');
-            this.$sidebar = this.$('.tbfnmi-sidebar');
-            this.$searchInput = this.$('.tbfnmi-search-input');
+            this.$grid = this.$('.tbfbkm-grid');
+            this.$status = this.$('.tbfbkm-status');
+            this.$origin = this.$('.tbfbkm-origin');
+            this.$sidebar = this.$('.tbfbkm-sidebar');
+            this.$searchInput = this.$('.tbfbkm-search-input');
 
-            this.$sidebar.on('mousedown mouseup click play pause', '.tbfnmi-attachment-details audio, .tbfnmi-attachment-details video', function(e) { e.stopPropagation(); });
+            this.$sidebar.on('mousedown mouseup click play pause', '.tbfbkm-attachment-details audio, .tbfbkm-attachment-details video', function(e) { e.stopPropagation(); });
             
             this.activeTypes.forEach(t => {
-                this.$(`.tbfnmi-tool-btn.type-filter[data-type="${t}"]`).addClass('active');
+                this.$(`.tbfbkm-tool-btn.type-filter[data-type="${t}"]`).addClass('active');
             });
 
             this.populateSites();
@@ -283,9 +283,9 @@
                 const originalText = btn.text();
                 btn.text('Saving...').prop('disabled', true);
                 
-                $.post(tbfnmi_modal_data.ajax, {
-                    action: 'tbfnmi_set_audio_thumb',
-                    nonce: tbfnmi_modal_data.nonce,
+                $.post(tbfbkm_modal_data.ajax, {
+                    action: 'tbfbkm_set_audio_thumb',
+                    nonce: tbfbkm_modal_data.nonce,
                     audio_id: audioId,
                     audio_blog_id: audioBlogId,
                     thumb_url: thumbUrl
@@ -293,13 +293,13 @@
                     if (res.success) {
                         btn.text('Thumbnail Set!');
                         
-                        $('#tbfnmi-audio-thumb-preview').attr('src', thumbUrl);
+                        $('#tbfbkm-audio-thumb-preview').attr('src', thumbUrl);
                         
                         if (this.itemsMap && this.itemsMap[key]) {
                             this.itemsMap[key].set('thumb', thumbUrl);
                         }
                         
-                        const gridItemImg = this.$(`.tbfnmi-item[data-tbfnmi-key="${key}"] .thumbnail`);
+                        const gridItemImg = this.$(`.tbfbkm-item[data-tbfbkm-key="${key}"] .thumbnail`);
                         gridItemImg.html('<div class="centered tbf-portrait-fix"><img src="' + _.escape(thumbUrl) + '" alt="" style="object-fit:cover; width:100%; height:100%;"></div>');
                         
                         setTimeout(() => { btn.text(originalText).prop('disabled', false); }, 2000);
@@ -338,7 +338,7 @@
         onItemClick(e) {
             e.preventDefault();
             const el = e.currentTarget;
-            const key = $(el).attr('data-tbfnmi-key');
+            const key = $(el).attr('data-tbfbkm-key');
             const model = this.itemsMap[key];
             if (model) this.controller.toggleSelected(model, el);
         },
@@ -372,10 +372,10 @@
                     previewImgSrc = includesUrl + 'images/media/audio.png';
                 }
 
-                mediaHtml = '<div class="tbfnmi-audio-preview-wrap" style="position:relative; margin-bottom:15px;">' +
-                                '<img src="' + _.escape(previewImgSrc) + '" style="width:100%; height:auto; border-radius:4px; display:block; margin-bottom:10px; background:#f0f0f1; object-fit:contain; max-height:200px;" id="tbfnmi-audio-thumb-preview" />' +
+                mediaHtml = '<div class="tbfbkm-audio-preview-wrap" style="position:relative; margin-bottom:15px;">' +
+                                '<img src="' + _.escape(previewImgSrc) + '" style="width:100%; height:auto; border-radius:4px; display:block; margin-bottom:10px; background:#f0f0f1; object-fit:contain; max-height:200px;" id="tbfbkm-audio-thumb-preview" />' +
                                 '<audio controls src="' + _.escape(m.url) + '" style="width:100%; outline:none; display:block;"></audio>' +
-                                '<button type="button" class="button button-secondary tbfnmi-set-audio-thumb" data-id="' + _.escape(m.attachment_id) + '" data-blog="' + _.escape(m.blog_id) + '" style="width:100%; margin-top:10px; font-weight:bold;">Select Thumbnail</button>' +
+                                '<button type="button" class="button button-secondary tbfbkm-set-audio-thumb" data-id="' + _.escape(m.attachment_id) + '" data-blog="' + _.escape(m.blog_id) + '" style="width:100%; margin-top:10px; font-weight:bold;">Select Thumbnail</button>' +
                             '</div>';
             } else if (m.media_type === 'video') {
                 mediaHtml = '<video controls src="' + _.escape(m.url) + '" style="width:100%; background:#000; outline:none; margin-bottom:15px; display:block;"></video>';
@@ -384,7 +384,7 @@
             }
 
             this.$sidebar.html(
-                '<div class="tbfnmi-attachment-details attachment-details" style="padding-top:0;">' +
+                '<div class="tbfbkm-attachment-details attachment-details" style="padding-top:0;">' +
                     '<h2 style="font-size:12px; text-transform:uppercase; color:#646970; margin:0 0 15px 0; font-weight:600;">Attachment Details</h2>' +
                     mediaHtml +
                     '<div class="filename" style="font-weight:600; font-size:14px; word-break:break-all; margin-bottom:8px; line-height:1.4;">' + _.escape(title) + '</div>' +
@@ -437,17 +437,17 @@
 
             Ajax.list({
                 page: this.page,
-                per_page: (tbfnmi_modal_data && tbfnmi_modal_data.perPage) ? tbfnmi_modal_data.perPage : 60,
+                per_page: (tbfbkm_modal_data && tbfbkm_modal_data.perPage) ? tbfbkm_modal_data.perPage : 60,
                 s: this.query,
                 mime: mimeFilter,
-                origin_blog_id: this.$('.tbfnmi-origin').val() || '',
+                origin_blog_id: this.$('.tbfbkm-origin').val() || '',
                 orderby: this.orderby
             }).done((res) => {
                 if (!res || !res.success || !res.data) { this.setStatus('Error loading.'); return; }
                 const items = res.data.items || [];
                 if (!items.length) {
                     this.setStatus(this.page === 1 ? 'No items found.' : 'No more items.');
-                    this.$('.tbfnmi-load-more').hide();
+                    this.$('.tbfbkm-load-more').hide();
                     this.done = true; return;
                 }
                 
@@ -487,7 +487,7 @@
                         thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-portrait-fix"><img src="' + _.escape(thumb) + '" alt=""></div></div>';
                     }
 
-                    const li = $('<li class="attachment tbfnmi-item" data-tbfnmi-key="' + key + '"></li>');
+                    const li = $('<li class="attachment tbfbkm-item" data-tbfbkm-key="' + key + '"></li>');
                     li.html(
                         '<div class="attachment-preview js--select-attachment type-' + _.escape(it.media_type) + '" style="position:relative;">' +
                             badgeHtml +
@@ -501,8 +501,8 @@
                     if (this.controller.selectedMap[key]) li.addClass('selected details');
                 });
                 
-                if (this.page < parseInt(res.data.max_pages, 10)) this.$('.tbfnmi-load-more').show();
-                else this.$('.tbfnmi-load-more').hide();
+                if (this.page < parseInt(res.data.max_pages, 10)) this.$('.tbfbkm-load-more').show();
+                else this.$('.tbfbkm-load-more').hide();
 
                 this.setStatus('');
                 this.page += 1;

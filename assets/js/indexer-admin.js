@@ -1,19 +1,19 @@
-/*!
+﻿/*!
  * File: assets/js/indexer-admin.js
  * Version: 4.0.0
  */
 (function ($) {
-  if (!window.TBFNMI_INDEXER) return;
+  if (!window.TBFBKM_INDEXER) return;
 
-  const $log = () => $('.tbfnmi-indexer-log');
+  const $log = () => $('.tbfbkm-indexer-log');
   const state = { running: false, timer: null, backoffMs: 500 };
 
   function ajax(action, data) {
     return $.ajax({
-      url: TBFNMI_INDEXER.ajax,
+      url: TBFBKM_INDEXER.ajax,
       method: 'POST',
       dataType: 'json',
-      data: Object.assign({ action, nonce: TBFNMI_INDEXER.nonce }, data || {})
+      data: Object.assign({ action, nonce: TBFBKM_INDEXER.nonce }, data || {})
     });
   }
 
@@ -36,7 +36,7 @@
 
   async function refreshStatus() {
     try {
-      const res = await ajax('tbfnmi_indexer_status', {});
+      const res = await ajax('tbfbkm_indexer_status', {});
       if (res && res.success) setStatusUI(res.data);
     } catch (e) {}
   }
@@ -54,7 +54,7 @@
     const params = getRunParams();
 
     try {
-      const res = await ajax('tbfnmi_indexer_run', params);
+      const res = await ajax('tbfbkm_indexer_run', params);
       if (!res || !res.success) { writeLog('Batch error (no response). Stopping.'); state.running = false; await refreshStatus(); return; }
       const data = res.data || {};
       if (data.log) {
@@ -90,7 +90,7 @@
   async function stop() {
     state.running = false;
     clearTimeout(state.timer);
-    try { const res = await ajax('tbfnmi_indexer_stop', {}); if (res && res.success) writeLog('Stopped.'); } catch (e) { writeLog('Stop request failed.'); }
+    try { const res = await ajax('tbfbkm_indexer_stop', {}); if (res && res.success) writeLog('Stopped.'); } catch (e) { writeLog('Stop request failed.'); }
     await refreshStatus();
   }
 
@@ -98,7 +98,7 @@
     state.running = false;
     clearTimeout(state.timer);
     if (!confirm('Reset progress? This will NOT delete the DB table; it only resets the cursor/progress state.')) return;
-    try { const res = await ajax('tbfnmi_indexer_reset', {}); if (res && res.success) { writeLog('Progress reset.'); if (res.data && res.data.state) setStatusUI(res.data.state); } } catch (e) { writeLog('Reset failed.'); }
+    try { const res = await ajax('tbfbkm_indexer_reset', {}); if (res && res.success) { writeLog('Progress reset.'); if (res.data && res.data.state) setStatusUI(res.data.state); } } catch (e) { writeLog('Reset failed.'); }
     await refreshStatus();
   }
 
@@ -111,3 +111,4 @@
   });
 
 })(jQuery);
+

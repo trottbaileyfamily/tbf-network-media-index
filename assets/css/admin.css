@@ -1,4 +1,4 @@
-/*
+﻿/*
  * File: assets/css/admin.css
  * Version: 6.9.12 (Compact Toolbar & Static Search - No Icon)
  */
@@ -6,7 +6,7 @@
 /* ==========================================================================
    Big King Media Compact Toolbar
    ========================================================================== */
-.tbfnmi-compact-toolbar {
+.tbfbkm-compact-toolbar {
     display: flex;
     align-items: center;
     background: #fff;
@@ -19,7 +19,7 @@
 }
 
 /* Site Selector */
-.tbfnmi-site-select-wrap select {
+.tbfbkm-site-select-wrap select {
     max-width: 150px;
     height: 32px;
     font-size: 13px;
@@ -28,7 +28,7 @@
 }
 
 /* Scrollable Tools Container */
-.tbfnmi-tools-scroll {
+.tbfbkm-tools-scroll {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -38,12 +38,12 @@
     -ms-overflow-style: none; /* Hide scrollbar IE */
     padding-right: 10px;
 }
-.tbfnmi-tools-scroll::-webkit-scrollbar {
+.tbfbkm-tools-scroll::-webkit-scrollbar {
     display: none; /* Hide scrollbar Chrome */
 }
 
 /* Vertical Divider */
-.tbfnmi-divider {
+.tbfbkm-divider {
     width: 1px;
     height: 24px;
     background: #ddd;
@@ -51,7 +51,7 @@
 }
 
 /* Tool Buttons (Icons) */
-.tbfnmi-tool-btn {
+.tbfbkm-tool-btn {
     background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
@@ -66,24 +66,24 @@
     transition: all 0.2s;
 }
 
-.tbfnmi-tool-btn:hover {
+.tbfbkm-tool-btn:hover {
     background: #f0f0f1;
     color: #1d2327;
     border-color: #8c8f94;
 }
 
-.tbfnmi-tool-btn:focus {
+.tbfbkm-tool-btn:focus {
     box-shadow: 0 0 0 1px #2271b1;
     outline: 1px solid transparent;
 }
 
-.tbfnmi-tool-btn.active {
+.tbfbkm-tool-btn.active {
     background: #2271b1;
     color: #fff;
     border-color: #2271b1;
 }
 
-.tbfnmi-tool-btn .dashicons {
+.tbfbkm-tool-btn .dashicons {
     font-size: 20px;
     width: 20px;
     height: 20px;
@@ -91,7 +91,7 @@
 }
 
 /* Tooltip on Hover */
-.tbfnmi-tool-btn:hover::after {
+.tbfbkm-tool-btn:hover::after {
     content: attr(title);
     position: absolute;
     bottom: -30px;
@@ -109,7 +109,7 @@
 }
 
 /* Compact Static Search (No Icon) */
-.tbfnmi-search-wrap {
+.tbfbkm-search-wrap {
     display: flex;
     align-items: center;
     background: #fff;
@@ -122,7 +122,7 @@
     flex-shrink: 0;
 }
 
-.tbfnmi-search-input {
+.tbfbkm-search-input {
     border: none;
     background: transparent;
     box-shadow: none;
@@ -134,13 +134,13 @@
     margin: 0;
 }
 
-.tbfnmi-search-input:focus {
+.tbfbkm-search-input:focus {
     box-shadow: none;
     outline: none;
 }
 
 /* Status Text */
-.tbfnmi-status {
+.tbfbkm-status {
     font-weight: 600;
     color: #d63638;
     margin-left: auto;
@@ -153,7 +153,7 @@
    ========================================================================== */
 
 /* Portrait Image Fix - Ensure images maintain aspect ratio */
-.tbfnmi-view .attachment-preview .thumbnail .centered.tbf-portrait-fix img {
+.tbfbkm-view .attachment-preview .thumbnail .centered.tbf-portrait-fix img {
     object-fit: contain;
     width: 100%;
     height: 100%;
@@ -161,8 +161,8 @@
 }
 
 /* Audio & Video Native Icon Styling */
-.tbfnmi-view .attachment-preview .thumbnail .centered.tbf-audio-icon-wrap,
-.tbfnmi-view .attachment-preview .thumbnail .centered.tbf-video-icon-wrap {
+.tbfbkm-view .attachment-preview .thumbnail .centered.tbf-audio-icon-wrap,
+.tbfbkm-view .attachment-preview .thumbnail .centered.tbf-video-icon-wrap {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -171,7 +171,7 @@
     height: 100%;
 }
 
-.tbfnmi-view .attachment-preview .thumbnail .centered .dashicons {
+.tbfbkm-view .attachment-preview .thumbnail .centered .dashicons {
     font-size: 60px;
     width: 60px;
     height: 60px;
@@ -179,7 +179,7 @@
 }
 
 /* Ensure filenames are visible at the bottom of the thumbnail */
-.tbfnmi-view .attachment-preview .filename {
+.tbfbkm-view .attachment-preview .filename {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -197,17 +197,17 @@
 }
 
 /* Toggle Logic: Hide Filename when class active */
-.tbfnmi-view.hide-captions .attachment-preview .filename {
+.tbfbkm-view.hide-captions .attachment-preview .filename {
     display: none !important;
 }
 
 /* Adjust the checkmark position */
-.tbfnmi-view .attachment-preview .check {
+.tbfbkm-view .attachment-preview .check {
     z-index: 10;
 }
 
 /* Specific styling for audio/video types */
-.tbfnmi-view .attachment-preview.type-audio .filename,
-.tbfnmi-view .attachment-preview.type-video .filename {
+.tbfbkm-view .attachment-preview.type-audio .filename,
+.tbfbkm-view .attachment-preview.type-video .filename {
     background: #fff;
 }

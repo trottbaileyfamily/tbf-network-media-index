@@ -1,4 +1,4 @@
-/**
+﻿/**
  * File: assets/js/admin-dashboard.js
  * Version: 6.2.6 (Enqueued Script Extraction)
  */
@@ -17,14 +17,14 @@
     }
 
     // 2. Indexer Tab Logic (Only runs if the data object exists)
-    if (typeof tbfnmi_dashboard_data !== 'undefined' && $('#tbf-indexer-ui').length) {
-        var sites = tbfnmi_dashboard_data.sites;
+    if (typeof tbfbkm_dashboard_data !== 'undefined' && $('#tbf-indexer-ui').length) {
+        var sites = tbfbkm_dashboard_data.sites;
         var totalSites = sites.length;
         var currentSiteIdx = 0;
         var currentLastId = 0;
         var totalIndexed = 0;
-        var nonce = tbfnmi_dashboard_data.nonce;
-        var ajaxurl = tbfnmi_dashboard_data.ajaxurl;
+        var nonce = tbfbkm_dashboard_data.nonce;
+        var ajaxurl = tbfbkm_dashboard_data.ajaxurl;
         var $log = $('#log-list');
 
         function logMsg(msg, color) {
@@ -57,7 +57,7 @@
                 
                 function syncChunk(offset) {
                     $.post(ajaxurl, { 
-                        action: 'tbfnmi_sync_vikinger', 
+                        action: 'tbfbkm_sync_vikinger', 
                         nonce: nonce, 
                         blog_id: site.id,
                         offset: offset
@@ -126,7 +126,7 @@
             if (currentLastId === 0) logMsg('Connecting to Site ID ' + site.id + ' (' + site.name + ')...', '#aaa');
 
             $.post(ajaxurl, { 
-                action: 'tbfnmi_index_batch', 
+                action: 'tbfbkm_index_batch', 
                 nonce: nonce, 
                 blog_id: site.id,
                 start_after: currentLastId

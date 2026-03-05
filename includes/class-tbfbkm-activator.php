@@ -1,13 +1,13 @@
 <?php
 /**
- * File: includes/class-tbfnmi-activator.php
+ * File: includes/class-tbfbkm-activator.php
  * Version: 6.9.6 (Big King Database Architect)
  * Description: Creates and updates the database tables for the Network Index and SEO Usage Map.
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Activator {
+class TBFBKM_Activator {
 
 	public static function activate() {
 		global $wpdb;
@@ -15,7 +15,7 @@ class TBFNMI_Activator {
 
 		// --- 1. Big King Media Index Table ---
 		// Stores the metadata for every image, video, and audio file in the network.
-		$table_name = $wpdb->base_prefix . 'tbfnmi_index';
+		$table_name = $wpdb->base_prefix . 'tbfbkm_index';
 
 		$sql = "CREATE TABLE $table_name (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -48,7 +48,7 @@ class TBFNMI_Activator {
 
 		// --- 2. Kaleeyon SEO Usage Map ---
 		// Tracks where media is used to generate 'Featured In' backlinks.
-		$map_table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+		$map_table = $wpdb->base_prefix . 'tbfbkm_usage_map';
 
 		$sql_map = "CREATE TABLE $map_table (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -65,8 +65,8 @@ class TBFNMI_Activator {
 
 		// --- 3. Default Settings ---
 		// Initialize Big King Media options if they don't exist.
-		if ( ! get_option('tbfnmi_photofall_options') ) {
-			update_option('tbfnmi_photofall_options', [
+		if ( ! get_option('tbfbkm_photofall_options') ) {
+			update_option('tbfbkm_photofall_options', [
 				'per_page' => 20,
 				'caption_mode' => 'hover',
 				'default_sort' => 'date_desc',
@@ -79,6 +79,6 @@ class TBFNMI_Activator {
 		}
 
 		// --- 4. Version Tracking ---
-		update_option('tbfnmi_db_version', TBFNMI_VER);
+		update_option('tbfbkm_db_version', TBFBKM_VER);
 	}
 }

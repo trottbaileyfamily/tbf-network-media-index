@@ -1,13 +1,13 @@
 <?php
 /**
- * File: includes/network/class-tbfnmi-indexer.php
+ * File: includes/network/class-tbfbkm-indexer.php
  * Version: 6.9.6 (Big King Media Indexer)
  * Description: Scans network sites to populate the Big King Index and Usage Map.
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Indexer {
+class TBFBKM_Indexer {
 
   public static function init() {
     // Hook into WP media actions to keep index fresh
@@ -16,7 +16,7 @@ class TBFNMI_Indexer {
     add_action('delete_attachment', [__CLASS__, 'remove_single_attachment']);
     
     // Admin Actions (Command Center)
-    add_action('wp_ajax_tbfnmi_process_batch', [__CLASS__, 'process_batch']);
+    add_action('wp_ajax_tbfbkm_process_batch', [__CLASS__, 'process_batch']);
   }
 
   // ==========================================================================
@@ -35,8 +35,8 @@ class TBFNMI_Indexer {
 
   public static function remove_single_attachment($post_id) {
     global $wpdb;
-    $index_table = $wpdb->base_prefix . 'tbfnmi_index';
-    $usage_table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+    $index_table = $wpdb->base_prefix . 'tbfbkm_index';
+    $usage_table = $wpdb->base_prefix . 'tbfbkm_usage_map';
     $blog_id = get_current_blog_id();
 
     $wpdb->delete($index_table, ['attachment_id' => $post_id, 'blog_id' => $blog_id]);
@@ -54,7 +54,7 @@ class TBFNMI_Indexer {
    */
   public static function update_index($post, $blog_id) {
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_index';
+    $table = $wpdb->base_prefix . 'tbfbkm_index';
 
     $url = wp_get_attachment_url($post->ID);
     if ( ! $url ) return;
@@ -133,7 +133,7 @@ class TBFNMI_Indexer {
       if ( $post->post_type === 'attachment' || $post->post_type === 'revision' ) return;
 
       global $wpdb;
-      $map_table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+      $map_table = $wpdb->base_prefix . 'tbfbkm_usage_map';
 
       // 1. Extract URLs from Content
       $content = $post->post_content;

@@ -1,12 +1,12 @@
 <?php
 /**
- * File: includes/seo/class-tbfnmi-seo-meta.php
- * Version: 6.7.2 (Sitemap Toggle Enforcement)
+ * File: includes/seo/class-tbfbkm-seo-meta.php
+ * Version: 6.8.0 (Deep Integration Backlinks & Elementor/Gutenberg Parsing)
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_SEO_Meta {
+class TBFBKM_SEO_Meta {
 
   public static function init() {
     add_action('init', [__CLASS__, 'add_sitemap_rules']);
@@ -19,34 +19,30 @@ class TBFNMI_SEO_Meta {
     add_action('save_post', [__CLASS__, 'sync_post_media_usage'], 99, 2);
   }
 
-  // --- SITEMAP ENGINE ---
-
   public static function add_sitemap_rules() {
-    // CHECK OPTION BEFORE REGISTERING RULES
-    $opts = get_option('tbfnmi_photofall_options', []);
+    $opts = get_option('tbfbkm_photofall_options', []);
     if ( empty($opts['enable_xml_sitemaps']) ) return;
 
-    add_rewrite_rule('^photo-sitemap-index\.xml$', 'index.php?tbfnmi_sitemap=photo', 'top');
-    add_rewrite_rule('^video-sitemap-index\.xml$', 'index.php?tbfnmi_sitemap=video', 'top');
+    add_rewrite_rule('^photo-sitemap-index\.xml$', 'index.php?tbfbkm_sitemap=photo', 'top');
+    add_rewrite_rule('^video-sitemap-index\.xml$', 'index.php?tbfbkm_sitemap=video', 'top');
   }
 
   public static function add_sitemap_vars($vars) {
-    $vars[] = 'tbfnmi_sitemap';
+    $vars[] = 'tbfbkm_sitemap';
     return $vars;
   }
 
   public static function render_sitemaps() {
-    $type = get_query_var('tbfnmi_sitemap');
+    $type = get_query_var('tbfbkm_sitemap');
     if ( ! $type ) return;
 
-    // Double check option
-    $opts = get_option('tbfnmi_photofall_options', []);
+    $opts = get_option('tbfbkm_photofall_options', []);
     if ( empty($opts['enable_xml_sitemaps']) ) {
         status_header(404); die('Sitemaps disabled');
     }
 
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_index';
+    $table = $wpdb->base_prefix . 'tbfbkm_index';
     
     if ( empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $wpdb->esc_like($table)))) ) {
         status_header(404); die('Index table missing');
@@ -101,8 +97,6 @@ class TBFNMI_SEO_Meta {
     exit;
   }
 
-  // --- OPENGRAPH & CONTENT INJECTION ---
-
   public static function inject_opengraph_tags() {
     if ( ! is_attachment() ) return;
     
@@ -134,12 +128,11 @@ class TBFNMI_SEO_Meta {
   public static function append_network_interlinks($content) {
     if ( ! is_attachment() || ! in_the_loop() || ! is_main_query() ) return $content;
 
-    $opts = get_option('tbfnmi_photofall_options', []);
-    // CHECK RESTORED OPTION
+    $opts = get_option('tbfbkm_photofall_options', []);
     if ( empty($opts['seo_interlink_origin']) ) return $content;
 
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+    $table = $wpdb->base_prefix . 'tbfbkm_usage_map';
     
     $like = $wpdb->esc_like($table);
     if ( empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $like))) ) return $content;
@@ -149,8 +142,9 @@ class TBFNMI_SEO_Meta {
     
     if ( ! $url ) return $content;
 
-    $url_http = set_url_scheme($url, 'http');
-    $url_https = set_url_scheme($url, 'https');
+    $url_clean = strtok($url, '?');
+    $url_http = set_url_scheme($url_clean, 'http');
+    $url_https = set_url_scheme($url_clean, 'https');
 
     $results = $wpdb->get_results($wpdb->prepare("
         SELECT post_title, permalink, site_name 
@@ -161,7 +155,7 @@ class TBFNMI_SEO_Meta {
 
     if ( empty($results) ) return $content;
 
-    $html  = '<div class="tbfnmi-seo-interlink-box" style="margin-top: 2.5em; padding: 1.5em; background: #fafafa; border-left: 4px solid #2271b1; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
+    $html  = '<div class="tbfbkm-seo-interlink-box" style="margin-top: 2.5em; padding: 1.5em; background: #fafafa; border-left: 4px solid #2271b1; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
     $html .= '<h4 style="margin-top: 0; margin-bottom: 0.5em; font-size: 1.1em; color: #1d2327;">Featured Context</h4>';
     $html .= '<p style="margin: 0 0 10px; font-size: 0.95em; color: #3c434a; line-height: 1.5;">This media file is featured in the following spaces across the AgriGames network:</p>';
     $html .= '<ul style="margin: 0; padding-left: 20px; font-size: 0.95em; color: #3c434a;">';
@@ -177,10 +171,10 @@ class TBFNMI_SEO_Meta {
 
   public static function sync_post_media_usage($post_id, $post) {
       if ( wp_is_post_revision($post_id) || $post->post_status !== 'publish' ) return;
-      if ( $post->post_type === 'attachment' || $post->post_type === 'nav_menu_item' || $post->post_type === 'revision' ) return;
+      if ( $post->post_type === 'attachment' || $post->post_type === 'nav_menu_item' ) return;
 
       global $wpdb;
-      $table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+      $table = $wpdb->base_prefix . 'tbfbkm_usage_map';
       
       $like = $wpdb->esc_like($table);
       if ( empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $like))) ) return;
@@ -194,27 +188,44 @@ class TBFNMI_SEO_Meta {
 
       $urls = [];
 
-      if ( preg_match_all('/src="([^"]+)"/i', $post->post_content, $matches) ) {
+      // 1. Standard Content Parsing (src & href for direct media links)
+      if ( preg_match_all('/(?:src|href)="([^"]+\.(?:jpg|jpeg|png|gif|mp4|webm|mov|mp3|wav|ogg|flac|m4a|aac)[^"]*)"/i', $post->post_content, $matches) ) {
           foreach ( $matches[1] as $src ) {
-              $urls[] = esc_url_raw($src);
+              $urls[] = esc_url_raw(strtok($src, '?'));
           }
       }
 
+      // 2. Elementor Deep Integration Parsing
+      $elementor_data = get_post_meta($post_id, '_elementor_data', true);
+      if ( !empty($elementor_data) ) {
+          if ( preg_match_all('/"(?:url|src)":"([^"]+\.(?:jpg|jpeg|png|gif|mp4|webm|mov|mp3|wav|ogg|flac|m4a|aac)[^"]*)"/i', $elementor_data, $el_matches) ) {
+              foreach ( $el_matches[1] as $src ) {
+                  $urls[] = esc_url_raw(strtok(stripslashes($src), '?'));
+              }
+          }
+      }
+
+      // 3. Featured Image and Proxies
       $thumb_id = get_post_thumbnail_id($post_id);
       if ( $thumb_id ) {
           $thumb_url = wp_get_attachment_url($thumb_id);
           if ( $thumb_url ) {
-              $urls[] = esc_url_raw($thumb_url);
-              $origin_url = get_post_meta($thumb_id, '_tbfnmi_origin_url', true);
-              if (!$origin_url) $origin_url = get_post_meta($thumb_id, '_tbfnmi_featured_url', true);
-              if (!$origin_url) $origin_url = get_post_meta($thumb_id, '_tbfnmi_proxy_url', true);
-              if ( $origin_url ) $urls[] = esc_url_raw($origin_url);
+              $urls[] = esc_url_raw(strtok($thumb_url, '?'));
+          }
+          
+          $origin_url = get_post_meta($thumb_id, '_tbfbkm_origin_url', true);
+          if (!$origin_url) $origin_url = get_post_meta($thumb_id, '_tbfbkm_featured_url', true);
+          if (!$origin_url) $origin_url = get_post_meta($thumb_id, '_tbfbkm_proxy_url', true);
+          
+          if ( $origin_url ) {
+              $urls[] = esc_url_raw(strtok($origin_url, '?'));
           }
       }
 
-      $tbf_featured = get_post_meta($post_id, '_tbfnmi_featured_url', true);
+      // 4. Remote Featured Meta (Gutenberg Sidebar Integration)
+      $tbf_featured = get_post_meta($post_id, '_tbfbkm_featured_url', true);
       if ( $tbf_featured ) {
-          $urls[] = esc_url_raw($tbf_featured);
+          $urls[] = esc_url_raw(strtok($tbf_featured, '?'));
       }
 
       $urls = array_unique(array_filter($urls));

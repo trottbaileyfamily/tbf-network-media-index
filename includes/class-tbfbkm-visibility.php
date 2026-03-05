@@ -1,11 +1,11 @@
 <?php
 /**
- * File: includes/class-tbfnmi-visibility.php
+ * File: includes/class-tbfbkm-visibility.php
  * Version: 4.3.6 (Smart Exclusion)
  */
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Visibility {
+class TBFBKM_Visibility {
 
   public static function init() {
     // Filter AJAX Grid (Media Library)
@@ -17,7 +17,7 @@ class TBFNMI_Visibility {
 
   /**
    * The Allowed Statuses for the Grid.
-   * We EXCLUDE 'tbfnmi-hidden' here to make the library fast.
+   * We EXCLUDE 'tbfbkm-hidden' here to make the library fast.
    */
   private static function get_grid_statuses() {
       return ['inherit', 'private', 'publish']; 
@@ -29,7 +29,7 @@ class TBFNMI_Visibility {
     // 1. CRITICAL: If the Modal is verifying a selection (asking for IDs), DO NOT FILTER.
     if ( ! empty($query['post__in']) || ! empty($query['p']) || ! empty($query['include']) ) {
         // Explicitly Allow Hidden if checking specific IDs
-        if ( ! isset($query['post_status']) ) $query['post_status'] = ['inherit', 'tbfnmi-hidden'];
+        if ( ! isset($query['post_status']) ) $query['post_status'] = ['inherit', 'tbfbkm-hidden'];
         return $query;
     }
 
@@ -55,3 +55,4 @@ class TBFNMI_Visibility {
     }
   }
 }
+

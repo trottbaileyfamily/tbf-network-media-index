@@ -1,16 +1,16 @@
 <?php
 /**
- * File: includes/photofall/class-tbfnmi-photofall-query.php
+ * File: includes/photofall/class-tbfbkm-photofall-query.php
  * Version: 6.2.5 (URL-Based De-duplication & Strict Grouping)
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Photofall_Query {
+class TBFBKM_Photofall_Query {
 
   public static function get_single($id, $blog_id = 0) {
       global $wpdb;
-      $table = $wpdb->base_prefix . 'tbfnmi_index';
+      $table = $wpdb->base_prefix . 'tbfbkm_index';
       $id = (int)$id; $blog_id = (int)$blog_id;
 
       $like = $wpdb->esc_like($table);
@@ -63,7 +63,7 @@ class TBFNMI_Photofall_Query {
 
   public static function get_filter_data() {
       global $wpdb;
-      $table = $wpdb->base_prefix . 'tbfnmi_index';
+      $table = $wpdb->base_prefix . 'tbfbkm_index';
       $years = $wpdb->get_col("SELECT DISTINCT year FROM $table WHERE year > 0 ORDER BY year DESC");
       $site_ids = $wpdb->get_col("SELECT DISTINCT blog_id FROM $table");
       $sites = [];
@@ -77,8 +77,8 @@ class TBFNMI_Photofall_Query {
 
   public static function get_media($args = []) {
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_index';
-    $settings = TBFNMI_Subsite_Settings::get_options();
+    $table = $wpdb->base_prefix . 'tbfbkm_index';
+    $settings = TBFBKM_Subsite_Settings::get_options();
     
     $defaults = [
       'allowed_types' => $settings['allowed_types'],

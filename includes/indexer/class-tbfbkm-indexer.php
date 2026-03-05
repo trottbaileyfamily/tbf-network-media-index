@@ -1,18 +1,18 @@
 <?php
 /**
- * File: includes/indexer/class-tbfnmi-indexer.php
+ * File: includes/indexer/class-tbfbkm-indexer.php
  * Version: 6.9.19 (Fix: Audio Mime Type Fallback & Single Indexing)
  */
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Indexer {
+class TBFBKM_Indexer {
   private $db;
   private $table;
 
   public function __construct() {
     global $wpdb;
     $this->db = $wpdb;
-    $this->table = $wpdb->base_prefix . 'tbfnmi_index';
+    $this->table = $wpdb->base_prefix . 'tbfbkm_index';
   }
 
   public function table_name(){ return $this->table; }
@@ -70,7 +70,7 @@ class TBFNMI_Indexer {
       KEY created_gmt (created_gmt)
     ) {$charset};";
 
-    $usage_table = $this->db->base_prefix . 'tbfnmi_usage_map';
+    $usage_table = $this->db->base_prefix . 'tbfbkm_usage_map';
     $sql .= "\nCREATE TABLE {$usage_table} (
       id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
       media_url VARCHAR(500) NOT NULL,
@@ -139,8 +139,8 @@ class TBFNMI_Indexer {
         
         // SEO Crawler for all post types
         if ( $p->post_type !== 'attachment' ) {
-            if ( class_exists('TBFNMI_SEO_Meta') ) {
-                TBFNMI_SEO_Meta::sync_post_media_usage($p->ID, $p);
+            if ( class_exists('TBFBKM_SEO_Meta') ) {
+                TBFBKM_SEO_Meta::sync_post_media_usage($p->ID, $p);
                 $indexed++;
             }
             continue;
@@ -153,7 +153,7 @@ class TBFNMI_Indexer {
         $is_proxy = false;
         if (is_array($all_meta)) {
             foreach ($all_meta as $key => $val) {
-                if (strpos($key, '_tbfnmi_proxy') !== false || strpos($key, '_tbfnmi_origin') !== false) {
+                if (strpos($key, '_tbfbkm_proxy') !== false || strpos($key, '_tbfbkm_origin') !== false) {
                     $is_proxy = true; break;
                 }
             }
@@ -212,7 +212,7 @@ class TBFNMI_Indexer {
       $contentUrl = $fullUrl;
       
       // Check for custom audio thumbnail metadata first (saved by our AJAX tool)
-      $custom_thumb = get_post_meta($attId, '_tbfnmi_custom_thumb_url', true);
+      $custom_thumb = get_post_meta($attId, '_tbfbkm_custom_thumb_url', true);
       if ( !empty($custom_thumb) ) {
           $posterUrl = $custom_thumb;
           $thumbUrl = $custom_thumb;

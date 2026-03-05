@@ -1,11 +1,11 @@
 <?php
 /**
- * File: includes/seo/class-tbfnmi-sitemaps.php
+ * File: includes/seo/class-tbfbkm-sitemaps.php
  * Version: 6.2.7 (Late Escaping XML Dates)
  */
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Sitemaps {
+class TBFBKM_Sitemaps {
 
   public static function init() {
     add_action('init', [__CLASS__, 'rewrite_rules']);
@@ -14,30 +14,30 @@ class TBFNMI_Sitemaps {
   }
 
   public static function rewrite_rules() {
-    add_rewrite_rule('^photo-sitemap-index\.xml$', 'index.php?tbfnmi_sm=photo_index', 'top');
-    add_rewrite_rule('^photo-sitemap-([0-9]{1,6})\.xml$', 'index.php?tbfnmi_sm=photo&tbfnmi_sm_page=$matches[1]', 'top');
-    add_rewrite_rule('^video-sitemap-index\.xml$', 'index.php?tbfnmi_sm=video_index', 'top');
-    add_rewrite_rule('^video-sitemap-([0-9]{1,6})\.xml$', 'index.php?tbfnmi_sm=video&tbfnmi_sm_page=$matches[1]', 'top');
+    add_rewrite_rule('^photo-sitemap-index\.xml$', 'index.php?tbfbkm_sm=photo_index', 'top');
+    add_rewrite_rule('^photo-sitemap-([0-9]{1,6})\.xml$', 'index.php?tbfbkm_sm=photo&tbfbkm_sm_page=$matches[1]', 'top');
+    add_rewrite_rule('^video-sitemap-index\.xml$', 'index.php?tbfbkm_sm=video_index', 'top');
+    add_rewrite_rule('^video-sitemap-([0-9]{1,6})\.xml$', 'index.php?tbfbkm_sm=video&tbfbkm_sm_page=$matches[1]', 'top');
   }
 
   public static function query_vars($vars) {
-    $vars[] = 'tbfnmi_sm';
-    $vars[] = 'tbfnmi_sm_page';
+    $vars[] = 'tbfbkm_sm';
+    $vars[] = 'tbfbkm_sm_page';
     return $vars;
   }
 
   public static function maybe_render() {
-    $kind = sanitize_key((string)get_query_var('tbfnmi_sm'));
+    $kind = sanitize_key((string)get_query_var('tbfbkm_sm'));
     if ( ! $kind ) return;
 
-    $settings = class_exists('TBFNMI_Plugin') ? TBFNMI_Plugin::instance()->get_settings() : [];
+    $settings = class_exists('TBFBKM_Plugin') ? TBFBKM_Plugin::instance()->get_settings() : [];
     $enabled = isset($settings['photofall_enabled']) ? (int)$settings['photofall_enabled'] : 1;
     if ( ! $enabled ) { self::send_404(); return; }
 
     if ( $kind === 'photo_index' ) { self::render_index('photo'); exit; }
     if ( $kind === 'video_index' ) { self::render_index('video'); exit; }
-    if ( $kind === 'photo' ) { self::render_chunk('photo', max(1,(int)get_query_var('tbfnmi_sm_page'))); exit; }
-    if ( $kind === 'video' ) { self::render_chunk('video', max(1,(int)get_query_var('tbfnmi_sm_page'))); exit; }
+    if ( $kind === 'photo' ) { self::render_chunk('photo', max(1,(int)get_query_var('tbfbkm_sm_page'))); exit; }
+    if ( $kind === 'video' ) { self::render_chunk('video', max(1,(int)get_query_var('tbfbkm_sm_page'))); exit; }
 
     self::send_404();
   }
@@ -65,13 +65,13 @@ class TBFNMI_Sitemaps {
     header('Content-Type: application/xml; charset=UTF-8', true);
     nocache_headers();
 
-    $settings = class_exists('TBFNMI_Plugin') ? TBFNMI_Plugin::instance()->get_settings() : [];
+    $settings = class_exists('TBFBKM_Plugin') ? TBFBKM_Plugin::instance()->get_settings() : [];
     $chunkSize = isset($settings['photofall_sitemap_chunk']) ? (int)$settings['photofall_sitemap_chunk'] : 1000;
     $chunkSize = max(200, min(5000, $chunkSize));
     $offset = ($page - 1) * $chunkSize;
 
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_index';
+    $table = $wpdb->base_prefix . 'tbfbkm_index';
     $mediaType = ($type === 'video') ? 'video' : 'image';
 
     $rows = $wpdb->get_results(
@@ -133,11 +133,11 @@ class TBFNMI_Sitemaps {
 
   private static function count_pages($type) {
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_index';
+    $table = $wpdb->base_prefix . 'tbfbkm_index';
     $mediaType = ($type === 'video') ? 'video' : 'image';
     $total = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE media_type = %s", $mediaType));
 
-    $settings = class_exists('TBFNMI_Plugin') ? TBFNMI_Plugin::instance()->get_settings() : [];
+    $settings = class_exists('TBFBKM_Plugin') ? TBFBKM_Plugin::instance()->get_settings() : [];
     $chunkSize = isset($settings['photofall_sitemap_chunk']) ? (int)$settings['photofall_sitemap_chunk'] : 1000;
     $chunkSize = max(200, min(5000, $chunkSize));
     $pages = (int)ceil($total / $chunkSize);

@@ -1,12 +1,12 @@
 <?php
 /**
- * File: includes/photofall/class-tbfnmi-photofall-router.php
+ * File: includes/photofall/class-tbfbkm-photofall-router.php
  * Version: 6.9.20 (Strict Master Redirects & Attachment Interceptor)
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Photofall_Router {
+class TBFBKM_Photofall_Router {
 
   public static function init() {
     add_action('init', [__CLASS__, 'add_rewrite_rule']);
@@ -15,13 +15,13 @@ class TBFNMI_Photofall_Router {
   }
 
   public static function add_rewrite_rule() {
-    add_rewrite_rule('^photo/?$', 'index.php?tbfnmi_photofall=1', 'top');
-    add_rewrite_rule('^photo/(image|video|audio)/([0-9]+)-([0-9]+)/?$', 'index.php?tbfnmi_single=1&tbf_type=$matches[1]&tbf_blog=$matches[2]&tbf_id=$matches[3]', 'top');
+    add_rewrite_rule('^photo/?$', 'index.php?tbfbkm_photofall=1', 'top');
+    add_rewrite_rule('^photo/(image|video|audio)/([0-9]+)-([0-9]+)/?$', 'index.php?tbfbkm_single=1&tbf_type=$matches[1]&tbf_blog=$matches[2]&tbf_id=$matches[3]', 'top');
   }
 
   public static function add_query_vars($vars) {
-    $vars[] = 'tbfnmi_photofall';
-    $vars[] = 'tbfnmi_single';
+    $vars[] = 'tbfbkm_photofall';
+    $vars[] = 'tbfbkm_single';
     $vars[] = 'tbf_type';
     $vars[] = 'tbf_id';
     $vars[] = 'tbf_blog';
@@ -29,7 +29,7 @@ class TBFNMI_Photofall_Router {
   }
 
   public static function template_redirect() {
-    $master_id = (int) get_site_option('tbfnmi_master_controller_id', get_main_site_id());
+    $master_id = (int) get_site_option('tbfbkm_master_controller_id', get_main_site_id());
     $current_id = get_current_blog_id();
     $master_base_url = get_site_url($master_id, '/photo/');
 
@@ -51,8 +51,8 @@ class TBFNMI_Photofall_Router {
         exit;
     }
 
-    $is_archive = get_query_var('tbfnmi_photofall');
-    $is_single  = get_query_var('tbfnmi_single');
+    $is_archive = get_query_var('tbfbkm_photofall');
+    $is_single  = get_query_var('tbfbkm_single');
 
     if ( ! $is_archive && ! $is_single ) return;
 
@@ -72,15 +72,15 @@ class TBFNMI_Photofall_Router {
     // ========================================================================
     // 3. MASTER SITE RENDER LOGIC
     // ========================================================================
-    if ( ! class_exists('TBFNMI_Photofall_Templates') ) {
-        require_once plugin_dir_path(__FILE__) . 'class-tbfnmi-photofall-templates.php';
+    if ( ! class_exists('TBFBKM_Photofall_Templates') ) {
+        require_once plugin_dir_path(__FILE__) . 'class-tbfbkm-photofall-templates.php';
     }
 
-    $settings = class_exists('TBFNMI_Subsite_Settings') ? TBFNMI_Subsite_Settings::get_options() : get_option('tbfnmi_photofall_options', []);
+    $settings = class_exists('TBFBKM_Subsite_Settings') ? TBFBKM_Subsite_Settings::get_options() : get_option('tbfbkm_photofall_options', []);
 
     if ( $is_single ) {
         global $wpdb;
-        $table = $wpdb->base_prefix . 'tbfnmi_index';
+        $table = $wpdb->base_prefix . 'tbfbkm_index';
         $att_id = (int)get_query_var('tbf_id');
         $blog_id = (int)get_query_var('tbf_blog');
         
@@ -97,13 +97,13 @@ class TBFNMI_Photofall_Router {
         $post->tbf_url_thumb = $post->url_thumb ?: $post->poster_url;
         $post->type = $post->media_type;
 
-        TBFNMI_Photofall_Templates::render_single($post, [], $settings);
+        TBFBKM_Photofall_Templates::render_single($post, [], $settings);
         exit;
     }
 
     if ( $is_archive ) {
         global $wpdb;
-        $table = $wpdb->base_prefix . 'tbfnmi_index';
+        $table = $wpdb->base_prefix . 'tbfbkm_index';
         
         $paged  = max(1, (int) get_query_var('paged', 1));
         if ( isset($_GET['tbf_page']) ) $paged = max(1, (int)$_GET['tbf_page']);
@@ -182,7 +182,7 @@ class TBFNMI_Photofall_Router {
             }
         }
 
-        TBFNMI_Photofall_Templates::render_page(
+        TBFBKM_Photofall_Templates::render_page(
             [
                 'posts' => $posts,
                 'max_pages' => $max_pages,

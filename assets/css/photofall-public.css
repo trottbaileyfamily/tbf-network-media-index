@@ -1,4 +1,4 @@
-/*
+﻿/*
  * File: assets/css/photofall-public.css
  * Version: 6.9.15 (Unified Masonry & Beautiful Rounded Edges Fix)
  */
@@ -128,13 +128,13 @@
 .tbf-prev:hover, .tbf-next:hover, .tbf-close:hover { color: #bbb; }
 
 /* Frontend Upload Modal */
-.tbfnmi-modal-overlay { 
+.tbfbkm-modal-overlay { 
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     background: rgba(0,0,0,0.85); z-index: 99999; 
     align-items: center; justify-content: center; backdrop-filter: blur(4px); 
 }
 
-.tbfnmi-modal-content { 
+.tbfbkm-modal-content { 
     background: #fff; padding: 30px; border-radius: 12px; 
     width: 95%; max-width: 700px; 
     height: 85vh; max-height: 85vh; /* Hard height constraint */
@@ -142,10 +142,10 @@
     position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
 }
 
-.tbfnmi-modal-close { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #555; z-index:10; }
-.tbfnmi-modal-close:hover { color: #d63638; }
+.tbfbkm-modal-close { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #555; z-index:10; }
+.tbfbkm-modal-close:hover { color: #d63638; }
 
-#tbfnmi-upload-staging {
+#tbfbkm-upload-staging {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -154,7 +154,7 @@
     margin-bottom: 10px;
 }
 
-.tbfnmi-queue-list { 
+.tbfbkm-queue-list { 
     flex: 1; 
     overflow-y: auto; 
     margin-bottom: 20px; 
@@ -162,27 +162,27 @@
     padding: 10px; background: #fafafa; 
 }
 
-.tbfnmi-queue-item { display: flex; gap: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; align-items: flex-start; position: relative; }
-.tbfnmi-queue-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-.tbfnmi-queue-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; background: #eee; flex-shrink: 0; }
-.tbfnmi-queue-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.tbfnmi-queue-fields input, .tbfnmi-queue-fields textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit; }
-.tbfnmi-queue-fields textarea { height: 60px; resize: vertical; }
+.tbfbkm-queue-item { display: flex; gap: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; align-items: flex-start; position: relative; }
+.tbfbkm-queue-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.tbfbkm-queue-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; background: #eee; flex-shrink: 0; }
+.tbfbkm-queue-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.tbfbkm-queue-fields input, .tbfbkm-queue-fields textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit; }
+.tbfbkm-queue-fields textarea { height: 60px; resize: vertical; }
 
-.tbfnmi-remove-item { position: absolute; top: 0; right: 0; cursor: pointer; color: #d63638; font-size: 18px; font-weight: bold; background: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; transition: all 0.2s; }
-.tbfnmi-remove-item:hover { background: #d63638; color: #fff; border-color: #d63638; }
+.tbfbkm-remove-item { position: absolute; top: 0; right: 0; cursor: pointer; color: #d63638; font-size: 18px; font-weight: bold; background: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; transition: all 0.2s; }
+.tbfbkm-remove-item:hover { background: #d63638; color: #fff; border-color: #d63638; }
 
-.tbfnmi-progress-wrap { height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; margin-top: 5px; display: none; }
-.tbfnmi-progress-bar { height: 100%; width: 0%; background: #2271b1; transition: width 0.2s; }
-.tbfnmi-status-text { font-size: 11px; color: #666; margin-top: 2px; }
-.tbfnmi-status-text.success { color: green; font-weight: bold; }
-.tbfnmi-status-text.error { color: #d63638; font-weight: bold; }
+.tbfbkm-progress-wrap { height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; margin-top: 5px; display: none; }
+.tbfbkm-progress-bar { height: 100%; width: 0%; background: #2271b1; transition: width 0.2s; }
+.tbfbkm-status-text { font-size: 11px; color: #666; margin-top: 2px; }
+.tbfbkm-status-text.success { color: green; font-weight: bold; }
+.tbfbkm-status-text.error { color: #d63638; font-weight: bold; }
 
-.tbfnmi-drop-zone { border: 2px dashed #ccc; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: border-color 0.2s; flex-shrink: 0; }
-.tbfnmi-drop-zone:hover { border-color: #2271b1; background: #f9f9f9; }
-.tbfnmi-upload-btn { width: 100%; background: #2271b1; color: #fff; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-.tbfnmi-upload-btn:hover { background: #135e96; }
-.tbfnmi-upload-btn:disabled { background: #ccc; cursor: not-allowed; }
+.tbfbkm-drop-zone { border: 2px dashed #ccc; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: border-color 0.2s; flex-shrink: 0; }
+.tbfbkm-drop-zone:hover { border-color: #2271b1; background: #f9f9f9; }
+.tbfbkm-upload-btn { width: 100%; background: #2271b1; color: #fff; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+.tbfbkm-upload-btn:hover { background: #135e96; }
+.tbfbkm-upload-btn:disabled { background: #ccc; cursor: not-allowed; }
 
 /* Load More */
 .tbf-load-more-wrap { text-align: center; margin: 40px 0; clear: both; }

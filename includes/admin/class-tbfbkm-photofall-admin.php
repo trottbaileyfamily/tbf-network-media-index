@@ -1,11 +1,11 @@
 <?php
 /**
- * File: includes/admin/class-tbfnmi-photofall-admin.php
+ * File: includes/admin/class-tbfbkm-photofall-admin.php
  * Version: 4.0.0
  */
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_PhotoFall_Admin {
+class TBFBKM_PhotoFall_Admin {
 
   public static function init() {
     if ( is_multisite() ) add_action('network_admin_menu', [__CLASS__, 'menu']);
@@ -21,23 +21,23 @@ class TBFNMI_PhotoFall_Admin {
 
   public static function assets($hook) {
     if ( strpos((string)$hook, 'tbf-photofall') === false ) return;
-    wp_enqueue_script('tbf-photofall-admin', TBFNMI_URL . 'assets/js/photofall-admin.js', ['jquery'], TBFNMI_VER, true);
+    wp_enqueue_script('tbf-photofall-admin', TBFBKM_URL . 'assets/js/photofall-admin.js', ['jquery'], TBFBKM_VER, true);
   }
 
   private static function get_settings() {
-    $raw = is_multisite() ? get_site_option('tbfnmi_settings', []) : get_option('tbfnmi_settings', []);
+    $raw = is_multisite() ? get_site_option('tbfbkm_settings', []) : get_option('tbfbkm_settings', []);
     return is_array($raw) ? $raw : [];
   }
 
   private static function save_settings(array $s) {
-    if ( is_multisite() ) update_site_option('tbfnmi_settings', $s);
-    else update_option('tbfnmi_settings', $s);
+    if ( is_multisite() ) update_site_option('tbfbkm_settings', $s);
+    else update_option('tbfbkm_settings', $s);
   }
 
   public static function render() {
     if ( ! current_user_can(is_multisite() ? 'manage_network_options' : 'manage_options') ) wp_die('Permission denied');
 
-    $settings = class_exists('TBFNMI_Plugin') ? TBFNMI_Plugin::instance()->get_settings() : self::get_settings();
+    $settings = class_exists('TBFBKM_Plugin') ? TBFBKM_Plugin::instance()->get_settings() : self::get_settings();
 
     if ( isset($_POST['tbf_pf_save']) ) {
       check_admin_referer('tbf_pf_save');
@@ -50,7 +50,7 @@ class TBFNMI_PhotoFall_Admin {
       echo '<div class="notice notice-success"><p>Saved.</p></div>';
     }
 
-    $photoUrl = home_url('/' . trim(TBFNMI_PHOTOFALL_BASE, '/') . '/');
+    $photoUrl = home_url('/' . trim(TBFBKM_PHOTOFALL_BASE, '/') . '/');
     $photoIndex = home_url('/photo-sitemap-index.xml');
     $videoIndex = home_url('/video-sitemap-index.xml');
 
@@ -77,11 +77,12 @@ class TBFNMI_PhotoFall_Admin {
     echo '</form>';
 
     echo '<hr/><ol style="line-height:1.8;">';
-    echo '<li>Flush permalinks once: <strong>Settings → Permalinks → Save</strong>.</li>';
-    echo '<li>Build index: <strong>Settings → Photofall Index</strong>.</li>';
+    echo '<li>Flush permalinks once: <strong>Settings â†’ Permalinks â†’ Save</strong>.</li>';
+    echo '<li>Build index: <strong>Settings â†’ Photofall Index</strong>.</li>';
     echo '<li>Submit sitemap index URLs in Google Search Console.</li>';
     echo '</ol>';
 
     echo '</div>';
   }
 }
+

@@ -1,80 +1,76 @@
 <?php
 /**
- * File: includes/class-tbfnmi-ajax.php
- * Version: 6.9.19 (Fix: Restored Indexer Batch Engine & Audio Tools)
+ * File: includes/class-tbfbkm-ajax.php
+ * Version: 7.0.1.0 (Document & Archive Icon Support)
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_AJAX {
+class TBFBKM_AJAX {
 
   public static function init() {
-    add_action('wp_ajax_tbfnmi_list', [__CLASS__, 'list_items']);
-    add_action('wp_ajax_nopriv_tbfnmi_list', [__CLASS__, 'list_items']); 
+    add_action('wp_ajax_tbfbkm_list', [__CLASS__, 'list_items']);
+    add_action('wp_ajax_nopriv_tbfbkm_list', [__CLASS__, 'list_items']); 
     
     // Load More Handler
-    add_action('wp_ajax_tbfnmi_load_more', [__CLASS__, 'load_more']);
-    add_action('wp_ajax_nopriv_tbfnmi_load_more', [__CLASS__, 'load_more']); 
+    add_action('wp_ajax_tbfbkm_load_more', [__CLASS__, 'load_more']);
+    add_action('wp_ajax_nopriv_tbfbkm_load_more', [__CLASS__, 'load_more']); 
 
-    add_action('wp_ajax_tbfnmi_sites', [__CLASS__, 'sites']);
+    add_action('wp_ajax_tbfbkm_sites', [__CLASS__, 'sites']);
     
     // Core Actions
-    add_action('wp_ajax_tbfnmi_proxy', [__CLASS__, 'proxy']);
-    add_action('wp_ajax_tbfnmi_proxy_url', [__CLASS__, 'proxy_url']);
-    add_action('wp_ajax_tbfnmi_set_featured_remote', [__CLASS__, 'set_featured_remote']);
+    add_action('wp_ajax_tbfbkm_proxy', [__CLASS__, 'proxy']);
+    add_action('wp_ajax_tbfbkm_proxy_url', [__CLASS__, 'proxy_url']);
+    add_action('wp_ajax_tbfbkm_set_featured_remote', [__CLASS__, 'set_featured_remote']);
     
     // Custom Audio Thumbnail Action
-    add_action('wp_ajax_tbfnmi_set_audio_thumb', [__CLASS__, 'set_audio_thumb']);
+    add_action('wp_ajax_tbfbkm_set_audio_thumb', [__CLASS__, 'set_audio_thumb']);
     
     // Frontend Management
-    add_action('wp_ajax_tbfnmi_frontend_upload', [__CLASS__, 'frontend_upload']);
-    add_action('wp_ajax_tbfnmi_hide_media', [__CLASS__, 'hide_media']);
-    add_action('wp_ajax_tbfnmi_delete_media', [__CLASS__, 'delete_media']);
+    add_action('wp_ajax_tbfbkm_frontend_upload', [__CLASS__, 'frontend_upload']);
+    add_action('wp_ajax_tbfbkm_hide_media', [__CLASS__, 'hide_media']);
+    add_action('wp_ajax_tbfbkm_delete_media', [__CLASS__, 'delete_media']);
     
     // Admin Tools & Dashboard Engine
-    add_action('wp_ajax_tbfnmi_resolve_ids', [__CLASS__, 'resolve_ids']);
-    add_action('wp_ajax_tbfnmi_wipe_index', [__CLASS__, 'wipe_index']);
-    add_action('wp_ajax_tbfnmi_process_batch', [__CLASS__, 'process_batch']); // FIX: Restored missing indexer hook
+    add_action('wp_ajax_tbfbkm_resolve_ids', [__CLASS__, 'resolve_ids']);
+    add_action('wp_ajax_tbfbkm_wipe_index', [__CLASS__, 'wipe_index']);
+    add_action('wp_ajax_tbfbkm_process_batch', [__CLASS__, 'process_batch']);
     
     // Princess Keilah Music
-    add_action('wp_ajax_tbfnmi_get_all_audio_ids', [__CLASS__, 'get_all_audio_ids']);
-    add_action('wp_ajax_tbfnmi_resolve_playlist', [__CLASS__, 'resolve_playlist']);
-    add_action('wp_ajax_nopriv_tbfnmi_resolve_playlist', [__CLASS__, 'resolve_playlist']);
+    add_action('wp_ajax_tbfbkm_get_all_audio_ids', [__CLASS__, 'get_all_audio_ids']);
+    add_action('wp_ajax_tbfbkm_resolve_playlist', [__CLASS__, 'resolve_playlist']);
+    add_action('wp_ajax_nopriv_tbfbkm_resolve_playlist', [__CLASS__, 'resolve_playlist']);
   }
 
   // ==========================================================================
-  // 1. DASHBOARD INDEXER ENGINE (FIXED)
+  // 1. DASHBOARD INDEXER ENGINE
   // ==========================================================================
 
   public static function process_batch() {
-      // Security Check
       if ( ! current_user_can('manage_network_options') && ! current_user_can('manage_options') ) {
           wp_send_json_error(['message' => 'Forbidden'], 403);
       }
 
       $step = max(1, (int)($_POST['step'] ?? 1));
       $offset = max(0, (int)($_POST['offset'] ?? 0));
-      $limit = 100; // Safe batch size to prevent timeouts
+      $limit = 100; 
 
-      // Get all active sites to index
       $sites = is_multisite() ? get_sites(['number' => 1000, 'public' => 1, 'archived' => 0, 'spam' => 0, 'deleted' => 0]) : [ (object)['blog_id' => get_current_blog_id()] ];
       
       $total_sites = count($sites);
       $current_index = $step - 1;
 
-      // Check if we are done with all sites
       if ( $current_index >= $total_sites ) {
           wp_send_json_success(['progress' => 100, 'message' => 'Network Indexing Complete!', 'done' => true]);
       }
 
       $blog_id = (int)$sites[$current_index]->blog_id;
       
-      // Load the Indexer Class safely
-      if ( ! class_exists('TBFNMI_Indexer') ) {
-          require_once plugin_dir_path(__FILE__) . 'indexer/class-tbfnmi-indexer.php';
+      if ( ! class_exists('TBFBKM_Indexer') ) {
+          require_once plugin_dir_path(__FILE__) . 'indexer/class-tbfbkm-indexer.php';
       }
       
-      $indexer = new TBFNMI_Indexer();
+      $indexer = new TBFBKM_Indexer();
       $res = $indexer->index_site_batch($blog_id, ['limit' => $limit, 'start_after' => $offset]);
 
       if ( isset($res['error']) && !empty($res['error']) ) {
@@ -84,7 +80,6 @@ class TBFNMI_AJAX {
       $next_offset = $res['last_id'];
       $next_step = $step;
       
-      // If done with this specific site, move to the next site
       if ( !empty($res['done']) ) {
           $next_step++;
           $next_offset = 0;
@@ -101,7 +96,6 @@ class TBFNMI_AJAX {
       ]);
   }
 
-
   // ==========================================================================
   // 2. PRINCESS KEILAH MUSIC ENGINE
   // ==========================================================================
@@ -109,7 +103,7 @@ class TBFNMI_AJAX {
   public static function get_all_audio_ids() {
       if(!current_user_can('manage_options')) wp_send_json_error(['message'=>'Forbidden'], 403);
       global $wpdb;
-      $table = $wpdb->base_prefix . 'tbfnmi_index';
+      $table = $wpdb->base_prefix . 'tbfbkm_index';
       $ids = $wpdb->get_col("SELECT attachment_id FROM {$table} WHERE media_type = 'audio' ORDER BY created_gmt DESC");
       if ( empty($ids) ) wp_send_json_error(['message' => 'No audio found in network index. Run the Indexer first.']);
       wp_send_json_success($ids);
@@ -119,48 +113,78 @@ class TBFNMI_AJAX {
       $ids_str = $_POST['ids'] ?? '';
       if ( empty($ids_str) ) wp_send_json_error();
       
-      $ids = explode(',', $ids_str);
+      $raw_ids = explode(',', $ids_str);
       $tracks = [];
-      $ids = array_slice($ids, 0, 500); 
+      $raw_ids = array_slice($raw_ids, 0, 500); 
       
-      $master_id = (int) get_site_option('tbfnmi_master_controller_id', 0);
+      $master_id = (int) get_site_option('tbfbkm_master_controller_id', 0);
       if ( $master_id <= 0 ) $master_id = get_main_site_id();
       $current_id = get_current_blog_id();
 
-      foreach($ids as $id) {
-          $id = (int)$id;
-          if(!$id) continue;
+      global $wpdb;
+      $index_table = $wpdb->base_prefix . 'tbfbkm_index';
+
+      foreach($raw_ids as $raw_id) {
+          $raw_id = trim($raw_id);
+          if (empty($raw_id)) continue;
+
+          $blog_id = 0;
+          $att_id = 0;
+
+          if (strpos($raw_id, '-') !== false) {
+              $parts = explode('-', $raw_id);
+              $blog_id = (int)$parts[0];
+              $att_id = (int)$parts[1];
+          } else {
+              $att_id = (int)$raw_id;
+          }
+
+          if (!$att_id) continue;
           
           $url = '';
           $title = '';
 
-          $local_url = wp_get_attachment_url($id);
-          if ( $local_url ) {
-              $url = $local_url;
-              $title = get_the_title($id);
-          } 
-          elseif ( $master_id && $master_id !== $current_id ) {
-              switch_to_blog($master_id);
-              $remote_url = wp_get_attachment_url($id);
-              if ( $remote_url ) {
-                  $url = $remote_url;
-                  $title = get_the_title($id);
-              }
-              restore_current_blog();
+          if ($blog_id > 0) {
+              $row = $wpdb->get_row($wpdb->prepare("SELECT url_full, title FROM {$index_table} WHERE blog_id = %d AND attachment_id = %d LIMIT 1", $blog_id, $att_id));
+          } else {
+              $row = $wpdb->get_row($wpdb->prepare("SELECT url_full, title FROM {$index_table} WHERE attachment_id = %d LIMIT 1", $att_id));
+          }
+
+          if ($row) {
+              $url = $row->url_full;
+              $title = $row->title;
           }
 
           if ( empty($url) ) {
-              global $wpdb;
-              $index_table = $wpdb->base_prefix . 'tbfnmi_index';
-              $row = $wpdb->get_row($wpdb->prepare("SELECT url_full, title FROM {$index_table} WHERE attachment_id = %d LIMIT 1", $id));
-              if ($row) {
-                  $url = $row->url_full;
-                  $title = $row->title;
+              $local_url = wp_get_attachment_url($att_id);
+              if ( $local_url ) {
+                  $url = $local_url;
+                  $title = get_the_title($att_id);
+              } 
+              elseif ( $master_id && $master_id !== $current_id ) {
+                  switch_to_blog($master_id);
+                  $remote_url = wp_get_attachment_url($att_id);
+                  if ( $remote_url ) {
+                      $url = $remote_url;
+                      $title = get_the_title($att_id);
+                  }
+                  restore_current_blog();
               }
           }
 
           if($url) {
-              $tracks[] = [ 'id' => $id, 'url' => $url, 'title' => $title ?: basename($url) ];
+              $clean_title = trim($title);
+              
+              if (empty($clean_title) || is_numeric($clean_title)) {
+                  $filename = pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_FILENAME);
+                  $clean_title = ucwords(str_replace(['-', '_'], ' ', $filename));
+              }
+
+              $tracks[] = [ 
+                  'id' => $raw_id, 
+                  'url' => $url, 
+                  'title' => $clean_title ?: 'Track ' . $att_id 
+              ];
           }
       }
       
@@ -193,8 +217,8 @@ class TBFNMI_AJAX {
           wp_send_json_success(['html' => '', 'max_pages' => 0]);
       }
 
-      if ( ! class_exists('TBFNMI_Photofall_Templates') ) {
-          require_once plugin_dir_path(__FILE__) . 'photofall/class-tbfnmi-photofall-templates.php';
+      if ( ! class_exists('TBFBKM_Photofall_Templates') ) {
+          require_once plugin_dir_path(__FILE__) . 'photofall/class-tbfbkm-photofall-templates.php';
       }
 
       ob_start();
@@ -212,7 +236,7 @@ class TBFNMI_AJAX {
           $post->tbf_url_full = $item['url'];
           $post->tbf_url_thumb = $item['thumb'];
 
-          echo wp_kses(TBFNMI_Photofall_Templates::get_item_html($post), TBFNMI_Photofall_Templates::get_allowed_html());
+          echo wp_kses(TBFBKM_Photofall_Templates::get_item_html($post), TBFBKM_Photofall_Templates::get_allowed_html());
       }
       $html = ob_get_clean();
 
@@ -238,9 +262,9 @@ class TBFNMI_AJAX {
     wp_send_json_success(['items' => [], 'total' => 0, 'max_pages' => 1]);
   }
 
-  private static function list_from_index_table($page, $per, $search, $mime, $originBlogId, $orderby, $include = '') {
+  private static function list_from_index_table($page, $per, $search, $mime_filter, $originBlogId, $orderby, $include = '') {
     global $wpdb;
-    $table = $wpdb->base_prefix . 'tbfnmi_index';
+    $table = $wpdb->base_prefix . 'tbfbkm_index';
 
     if ( !$wpdb->get_var("SHOW TABLES LIKE '{$table}'") ) return null;
 
@@ -268,10 +292,10 @@ class TBFNMI_AJAX {
             $params[] = $originBlogId;
         }
 
-        if ( $mime ) {
-            if ( $mime === 'image' ) { $where .= " AND media_type = 'image'"; } 
-            elseif ( $mime === 'video' ) { $where .= " AND media_type = 'video'"; } 
-            elseif ( $mime === 'audio' ) { $where .= " AND media_type = 'audio'"; } 
+        if ( $mime_filter ) {
+            if ( $mime_filter === 'image' ) { $where .= " AND media_type = 'image'"; } 
+            elseif ( $mime_filter === 'video' ) { $where .= " AND media_type = 'video'"; } 
+            elseif ( $mime_filter === 'audio' ) { $where .= " AND media_type = 'audio'"; } 
         }
 
         if ( $search !== '' ) {
@@ -300,12 +324,24 @@ class TBFNMI_AJAX {
 
     $items = [];
     foreach ((array)$rows as $r) {
+      $mime = $r['mime'] ?? '';
       $thumb = $r['url_thumb'] ?: ($r['poster_url'] ?: ($r['url_medium'] ?: $r['url_full']));
       
-      if ($r['media_type'] === 'audio') {
-          if (preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $thumb)) {
+      // Dynamic Icon Resolution for Non-Visual Media
+      if (strpos($mime, 'audio/') === 0) {
+          if (empty($r['poster_url']) || preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $thumb)) {
               $thumb = includes_url('images/media/audio.png');
           }
+      } elseif (strpos($mime, 'video/') === 0) {
+          if (empty($r['poster_url']) && preg_match('/\.(mp4|webm|mov|avi)$/i', $thumb)) {
+              $thumb = includes_url('images/media/video.png');
+          }
+      } elseif (strpos($mime, 'application/zip') !== false || strpos($mime, 'x-gzip') !== false || strpos($mime, 'x-rar') !== false) {
+          $thumb = includes_url('images/media/archive.png');
+      } elseif (strpos($mime, 'application/pdf') !== false || strpos($mime, 'application/msword') !== false || strpos($mime, 'application/vnd.') !== false || strpos($mime, 'text/') === 0) {
+          $thumb = includes_url('images/media/document.png');
+      } elseif (strpos($mime, 'image/') !== 0) {
+          $thumb = includes_url('images/media/default.png');
       }
 
       $items[] = [
@@ -315,7 +351,7 @@ class TBFNMI_AJAX {
         'caption' => (string)($r['caption'] ?? ''), 
         'url' => (string)($r['url_full'] ?? ''), 
         'thumb' => (string)$thumb, 
-        'mime' => (string)($r['mime'] ?? ''), 
+        'mime' => (string)$mime, 
         'media_type' => (string)($r['media_type'] ?? ''), 
         'width' => (int)($r['width'] ?? 800), 
         'height' => (int)($r['height'] ?? 800),
@@ -330,10 +366,10 @@ class TBFNMI_AJAX {
   // ==========================================================================
   
   public static function frontend_upload() {
-      check_ajax_referer('tbfnmi_frontend', 'security');
+      check_ajax_referer('tbfbkm_frontend', 'security');
       @set_time_limit(0);
 
-      $opts = get_option('tbfnmi_photofall_options', []);
+      $opts = get_option('tbfbkm_photofall_options', []);
       $is_authorized = false;
       if ( current_user_can('manage_options') || is_super_admin() ) $is_authorized = true;
       elseif ( !empty($opts['enable_frontend_upload']) ) {
@@ -343,15 +379,15 @@ class TBFNMI_AJAX {
       }
 
       if ( !$is_authorized ) wp_send_json_error(['message' => 'Not authorized'], 403);
-      if ( empty($_FILES['tbfnmi_media']) ) wp_send_json_error(['message' => 'No files'], 400);
+      if ( empty($_FILES['tbfbkm_media']) ) wp_send_json_error(['message' => 'No files'], 400);
 
       require_once(ABSPATH . 'wp-admin/includes/image.php');
       require_once(ABSPATH . 'wp-admin/includes/file.php');
       require_once(ABSPATH . 'wp-admin/includes/media.php');
 
-      $title = sanitize_text_field($_POST['tbfnmi_title'] ?? '');
-      $desc  = sanitize_textarea_field($_POST['tbfnmi_description'] ?? '');
-      $files = $_FILES['tbfnmi_media'];
+      $title = sanitize_text_field($_POST['tbfbkm_title'] ?? '');
+      $desc  = sanitize_textarea_field($_POST['tbfbkm_description'] ?? '');
+      $files = $_FILES['tbfbkm_media'];
       $uploaded_ids = [];
 
       if ( is_array($files['name']) ) {
@@ -369,8 +405,8 @@ class TBFNMI_AJAX {
 
                   if ( !is_wp_error($attachment_id) ) {
                       $uploaded_ids[] = $attachment_id;
-                      if ( class_exists('TBFNMI_Indexer') ) {
-                          $indexer = new TBFNMI_Indexer();
+                      if ( class_exists('TBFBKM_Indexer') ) {
+                          $indexer = new TBFBKM_Indexer();
                           $indexer->index_single_attachment($attachment_id);
                       }
                   }
@@ -384,18 +420,18 @@ class TBFNMI_AJAX {
 
   public static function hide_media() {
       if ( ! current_user_can('manage_options') ) wp_send_json_error(['message' => 'Forbidden'], 403);
-      check_ajax_referer('tbfnmi_admin_action', 'nonce');
+      check_ajax_referer('tbfbkm_admin_action', 'nonce');
       $att_id = (int)($_POST['attachment_id'] ?? 0);
-      $hidden = get_option('tbfnmi_hidden_media', []);
+      $hidden = get_option('tbfbkm_hidden_media', []);
       if ( in_array($att_id, $hidden) ) $hidden = array_diff($hidden, [$att_id]);
       else $hidden[] = $att_id;
-      update_option('tbfnmi_hidden_media', $hidden);
+      update_option('tbfbkm_hidden_media', $hidden);
       wp_send_json_success();
   }
 
   public static function delete_media() {
       if ( ! current_user_can('manage_options') ) wp_send_json_error(['message' => 'Forbidden'], 403);
-      check_ajax_referer('tbfnmi_admin_action', 'nonce');
+      check_ajax_referer('tbfbkm_admin_action', 'nonce');
       $att_id = (int)($_POST['attachment_id'] ?? 0);
       if ( wp_delete_attachment($att_id, true) ) wp_send_json_success();
       else wp_send_json_error(['message' => 'Delete failed.']);
@@ -407,11 +443,11 @@ class TBFNMI_AJAX {
 
   public static function wipe_index() {
       if(!current_user_can('manage_options')) wp_send_json_error();
-      check_ajax_referer('tbfnmi_wipe_nonce', 'nonce');
+      check_ajax_referer('tbfbkm_wipe_nonce', 'nonce');
       global $wpdb;
-      $wpdb->query("TRUNCATE TABLE {$wpdb->base_prefix}tbfnmi_index");
-      $wpdb->query("TRUNCATE TABLE {$wpdb->base_prefix}tbfnmi_usage_map");
-      delete_option('tbfnmi_db_version');
+      $wpdb->query("TRUNCATE TABLE {$wpdb->base_prefix}tbfbkm_index");
+      $wpdb->query("TRUNCATE TABLE {$wpdb->base_prefix}tbfbkm_usage_map");
+      delete_option('tbfbkm_db_version');
       wp_send_json_success(['message' => 'Index wiped.']);
   }
 
@@ -420,7 +456,7 @@ class TBFNMI_AJAX {
       $ids = explode(',', sanitize_text_field($_POST['ids'] ?? ''));
       $urls = [];
       global $wpdb;
-      $index_table = $wpdb->base_prefix . 'tbfnmi_index';
+      $index_table = $wpdb->base_prefix . 'tbfbkm_index';
       foreach($ids as $id) {
           $id = (int)trim($id);
           if(!$id) continue;
@@ -461,14 +497,12 @@ class TBFNMI_AJAX {
           wp_send_json_error(['message' => 'Missing data'], 400);
       }
 
-      // Save locally to origin blog so it survives future sweeps
       if ( is_multisite() ) switch_to_blog($audio_blog_id);
-      update_post_meta($audio_id, '_tbfnmi_custom_thumb_url', $thumb_url);
+      update_post_meta($audio_id, '_tbfbkm_custom_thumb_url', $thumb_url);
       if ( is_multisite() ) restore_current_blog();
 
-      // Ensure table updates instantly
       global $wpdb;
-      $table = $wpdb->base_prefix . 'tbfnmi_index';
+      $table = $wpdb->base_prefix . 'tbfbkm_index';
       $wpdb->update(
           $table,
           ['poster_url' => $thumb_url, 'url_thumb' => $thumb_url],
@@ -492,9 +526,9 @@ class TBFNMI_AJAX {
 
     if (empty($mime)) $mime = 'image/jpeg';
 
-    if ( class_exists('TBFNMI_Network_Media_Index') ) remove_action('add_attachment', ['TBFNMI_Network_Media_Index', 'auto_index_attachment']);
+    if ( class_exists('TBFBKM_Network_Media_Index') ) remove_action('add_attachment', ['TBFBKM_Network_Media_Index', 'auto_index_attachment']);
 
-    $localId = TBFNMI_Proxy::create_proxy_attachment([
+    $localId = TBFBKM_Proxy::create_proxy_attachment([
       'origin_blog_id' => $originBlogId, 
       'origin_attachment_id' => $originAttId, 
       'url' => $url,
@@ -503,7 +537,7 @@ class TBFNMI_AJAX {
       'source' => 'network',
     ]);
 
-    if ( class_exists('TBFNMI_Network_Media_Index') ) add_action('add_attachment', ['TBFNMI_Network_Media_Index', 'auto_index_attachment']);
+    if ( class_exists('TBFBKM_Network_Media_Index') ) add_action('add_attachment', ['TBFBKM_Network_Media_Index', 'auto_index_attachment']);
 
     if ( is_wp_error($localId) ) wp_send_json_error(['message' => $localId->get_error_message()], 500);
     wp_send_json_success(['local_attachment_id' => (int)$localId, 'url' => $url, 'mime' => $mime]);
@@ -518,14 +552,14 @@ class TBFNMI_AJAX {
     $mime = sanitize_text_field((string)($_POST['mime'] ?? 'image/jpeg'));
     $source = sanitize_key((string)($_POST['source'] ?? 'external'));
 
-    if ( class_exists('TBFNMI_Network_Media_Index') ) remove_action('add_attachment', ['TBFNMI_Network_Media_Index', 'auto_index_attachment']);
+    if ( class_exists('TBFBKM_Network_Media_Index') ) remove_action('add_attachment', ['TBFBKM_Network_Media_Index', 'auto_index_attachment']);
     
-    $localId = TBFNMI_Proxy::create_proxy_attachment([
+    $localId = TBFBKM_Proxy::create_proxy_attachment([
       'origin_blog_id' => 0, 'origin_attachment_id' => 0, 
       'url' => $url, 'title' => $title, 'mime' => $mime, 'source' => $source
     ]);
     
-    if ( class_exists('TBFNMI_Network_Media_Index') ) add_action('add_attachment', ['TBFNMI_Network_Media_Index', 'auto_index_attachment']);
+    if ( class_exists('TBFBKM_Network_Media_Index') ) add_action('add_attachment', ['TBFBKM_Network_Media_Index', 'auto_index_attachment']);
 
     if ( is_wp_error($localId) ) wp_send_json_error(['message' => $localId->get_error_message()], 500);
     wp_send_json_success(['local_attachment_id' => (int)$localId, 'url' => $url, 'mime' => $mime]);
@@ -542,11 +576,11 @@ class TBFNMI_AJAX {
     $mime = sanitize_text_field((string)($_POST['mime'] ?? 'image/jpeg'));
     $type = sanitize_key((string)($_POST['type'] ?? 'image'));
 
-    update_post_meta($postId, '_tbfnmi_featured_url', $url);
-    update_post_meta($postId, '_tbfnmi_featured_mime', $mime);
-    update_post_meta($postId, '_tbfnmi_featured_type', $type);
+    update_post_meta($postId, '_tbfbkm_featured_url', $url);
+    update_post_meta($postId, '_tbfbkm_featured_mime', $mime);
+    update_post_meta($postId, '_tbfbkm_featured_type', $type);
 
-    $pid = (int) TBFNMI_Placeholder::get_id();
+    $pid = (int) TBFBKM_Placeholder::get_id();
     if ($pid > 0) update_post_meta($postId, '_thumbnail_id', $pid);
 
     clean_post_cache($postId);

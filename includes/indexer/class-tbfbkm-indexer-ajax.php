@@ -1,42 +1,42 @@
 <?php
 /**
- * File: includes/indexer/class-tbfnmi-indexer-ajax.php
+ * File: includes/indexer/class-tbfbkm-indexer-ajax.php
  * Version: 4.0.0
  */
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Indexer_AJAX {
+class TBFBKM_Indexer_AJAX {
 
   public static function init() {
-    add_action('wp_ajax_tbfnmi_indexer_status', [__CLASS__, 'status']);
-    add_action('wp_ajax_tbfnmi_indexer_run', [__CLASS__, 'run']);
-    add_action('wp_ajax_tbfnmi_indexer_stop', [__CLASS__, 'stop']);
-    add_action('wp_ajax_tbfnmi_indexer_reset', [__CLASS__, 'reset']);
+    add_action('wp_ajax_tbfbkm_indexer_status', [__CLASS__, 'status']);
+    add_action('wp_ajax_tbfbkm_indexer_run', [__CLASS__, 'run']);
+    add_action('wp_ajax_tbfbkm_indexer_stop', [__CLASS__, 'stop']);
+    add_action('wp_ajax_tbfbkm_indexer_reset', [__CLASS__, 'reset']);
   }
 
   private static function verify() {
     $cap = is_multisite() ? 'manage_network_options' : 'manage_options';
     if ( ! current_user_can($cap) ) wp_send_json_error(['message'=>'Permission denied'], 403);
-    check_ajax_referer('tbfnmi_indexer_nonce', 'nonce');
+    check_ajax_referer('tbfbkm_indexer_nonce', 'nonce');
   }
 
   public static function status() {
     self::verify();
-    wp_send_json_success(TBFNMI_Indexer_Admin::get_state());
+    wp_send_json_success(TBFBKM_Indexer_Admin::get_state());
   }
 
   public static function stop() {
     self::verify();
-    $st = TBFNMI_Indexer_Admin::get_state();
+    $st = TBFBKM_Indexer_Admin::get_state();
     $st['running'] = 0;
-    TBFNMI_Indexer_Admin::save_state($st);
+    TBFBKM_Indexer_Admin::save_state($st);
     wp_send_json_success(['message'=>'Stopped','state'=>$st]);
   }
 
   public static function reset() {
     self::verify();
-    TBFNMI_Indexer_Admin::reset_state();
-    wp_send_json_success(['message'=>'Progress reset','state'=>TBFNMI_Indexer_Admin::get_state()]);
+    TBFBKM_Indexer_Admin::reset_state();
+    wp_send_json_success(['message'=>'Progress reset','state'=>TBFBKM_Indexer_Admin::get_state()]);
   }
 
   public static function run() {
@@ -47,7 +47,7 @@ class TBFNMI_Indexer_AJAX {
     $videos = ! empty($_POST['videos']);
     $siteOnly = isset($_POST['site_only']) ? (int)$_POST['site_only'] : 0;
 
-    $st = TBFNMI_Indexer_Admin::get_state();
+    $st = TBFBKM_Indexer_Admin::get_state();
     $st['running'] = 1;
 
     if ( $siteOnly > 0 ) {
@@ -64,11 +64,11 @@ class TBFNMI_Indexer_AJAX {
     }
     if ($blogId <= 0) {
       $st['running'] = 0;
-      TBFNMI_Indexer_Admin::save_state($st);
+      TBFBKM_Indexer_Admin::save_state($st);
       wp_send_json_success(['message'=>'No sites found','state'=>$st,'done'=>true]);
     }
 
-    $indexer = new TBFNMI_Indexer();
+    $indexer = new TBFBKM_Indexer();
     if ( ! $indexer->has_table() ) $indexer->create_table();
 
     $cursor = (int)($st['cursor'] ?? 0);
@@ -82,7 +82,7 @@ class TBFNMI_Indexer_AJAX {
 
     if ( ! empty($res['error']) ) {
       $st['running'] = 0;
-      TBFNMI_Indexer_Admin::save_state($st);
+      TBFBKM_Indexer_Admin::save_state($st);
       wp_send_json_error(['message'=>$res['error'], 'state'=>$st], 500);
     }
 
@@ -102,7 +102,7 @@ class TBFNMI_Indexer_AJAX {
       }
     }
 
-    TBFNMI_Indexer_Admin::save_state($st);
+    TBFBKM_Indexer_Admin::save_state($st);
 
     wp_send_json_success(['state'=>$st,'log'=>$log,'done'=>empty($st['running'])]);
   }
@@ -124,3 +124,4 @@ class TBFNMI_Indexer_AJAX {
     return isset($all[$pos+1]) ? (int)$all[$pos+1] : 0;
   }
 }
+

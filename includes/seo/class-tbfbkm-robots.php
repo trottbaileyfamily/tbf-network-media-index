@@ -1,13 +1,13 @@
 <?php
 /**
- * File: includes/seo/class-tbfnmi-robots.php
+ * File: includes/seo/class-tbfbkm-robots.php
  * Version: 4.0.0
  *
  * Adds allow rules for Photofall and sitemaps.
  */
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Robots {
+class TBFBKM_Robots {
   public static function init() {
     add_filter('robots_txt', [__CLASS__, 'robots'], 20, 2);
   }
@@ -23,3 +23,4 @@ class TBFNMI_Robots {
     return $output . "\n" . implode("\n", $lines) . "\n";
   }
 }
+

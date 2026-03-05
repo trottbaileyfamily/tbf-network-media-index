@@ -1,21 +1,21 @@
 <?php
 /**
- * File: includes/photofall/class-tbfnmi-photofall-templates.php
+ * File: includes/photofall/class-tbfbkm-photofall-templates.php
  * Version: 6.9.19 (Fix: Whitelisted Hover Attributes & Restored Admin Controls)
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Photofall_Templates {
+class TBFBKM_Photofall_Templates {
 
   public static function resolve_url($post) {
       $id = (int)($post->ID ?? $post->attachment_id ?? 0);
       if ( !empty($post->tbf_url_full) ) return $post->tbf_url_full;
-      $proxy_url = get_post_meta($id, '_tbfnmi_proxy_url', true);
+      $proxy_url = get_post_meta($id, '_tbfbkm_proxy_url', true);
       if ( $proxy_url ) return $proxy_url;
-      $featured_url = get_post_meta($id, '_tbfnmi_featured_url', true);
+      $featured_url = get_post_meta($id, '_tbfbkm_featured_url', true);
       if ( $featured_url ) return $featured_url;
-      $source_url = get_post_meta($id, '_tbfnmi_source_url', true);
+      $source_url = get_post_meta($id, '_tbfbkm_source_url', true);
       if ( $source_url ) return $source_url;
       $local_url = wp_get_attachment_url($id);
       if ( $local_url ) return $local_url;
@@ -25,7 +25,7 @@ class TBFNMI_Photofall_Templates {
   public static function render_page($data, $settings, $current_args, $filter_options) {
     self::enqueue_assets($data['max_pages'], $current_args);
     
-    $opts = get_option('tbfnmi_photofall_options', []);
+    $opts = get_option('tbfbkm_photofall_options', []);
     $is_admin = current_user_can('manage_options') || is_super_admin();
     $tab = isset($_GET['tbf_tab']) ? sanitize_text_field($_GET['tbf_tab']) : 'active';
     
@@ -40,12 +40,12 @@ class TBFNMI_Photofall_Templates {
         }
     }
 
-    $hidden_items = get_option('tbfnmi_hidden_media', []);
+    $hidden_items = get_option('tbfbkm_hidden_media', []);
     $media = $data['posts'];
 
     if ( $tab === 'hidden' ) {
         global $wpdb;
-        $table = $wpdb->base_prefix . 'tbfnmi_index';
+        $table = $wpdb->base_prefix . 'tbfbkm_index';
         if ( empty($hidden_items) ) {
             $media = [];
         } else {
@@ -68,7 +68,7 @@ class TBFNMI_Photofall_Templates {
           <a href="?tbf_tab=hidden" style="margin-right: auto; text-decoration: none; padding-bottom: 5px; border-bottom: <?php echo $tab === 'hidden' ? '3px solid #d63638' : 'none'; ?>; color: <?php echo $tab === 'hidden' ? '#d63638' : '#555'; ?>;">Hidden Media</a>
           
           <?php if ( !empty($opts['enable_xml_sitemaps']) ): ?>
-              <button type="button" onclick="tbfnmiPingSEO()" class="tbf-btn" style="background:#fff; font-size:12px; border:1px solid #2271b1; color:#2271b1;">Notify Search Engines</button>
+              <button type="button" onclick="tbfbkmPingSEO()" class="tbf-btn" style="background:#fff; font-size:12px; border:1px solid #2271b1; color:#2271b1;">Notify Search Engines</button>
           <?php endif; ?>
       </div>
       <?php endif; ?>
@@ -99,7 +99,7 @@ class TBFNMI_Photofall_Templates {
             <?php endif; ?>
 
             <?php if ( $can_upload && $tab === 'active' ): ?>
-                <button type="button" id="tbfnmi-trigger-upload" class="tbf-btn" style="background: #2271b1; color: #fff; border: none; font-weight: bold; margin-left: auto;">Upload Media</button>
+                <button type="button" id="tbfbkm-trigger-upload" class="tbf-btn" style="background: #2271b1; color: #fff; border: none; font-weight: bold; margin-left: auto;">Upload Media</button>
             <?php endif; ?>
         </div>
 
@@ -186,7 +186,7 @@ class TBFNMI_Photofall_Templates {
       $type = $item->type;
 
       global $wpdb;
-      $usage_table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+      $usage_table = $wpdb->base_prefix . 'tbfbkm_usage_map';
       $has_usage_table = !empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $wpdb->esc_like($usage_table))));
       $featured_links = [];
 
@@ -223,7 +223,7 @@ class TBFNMI_Photofall_Templates {
                       <audio src="<?php echo esc_url($url_full); ?>" controls style="width:100%; min-width:300px;"></audio>
                   </div>
               <?php else: ?>
-                  <img src="<?php echo esc_url($url_full); ?>" class="tbf-single-media" decoding="async" style="max-width: 100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); cursor: zoom-in;" onclick="tbfnmi_photofall.openRaw('<?php echo esc_url($url_full); ?>', 'image', '<?php echo esc_attr($item->post_title); ?>')">
+                  <img src="<?php echo esc_url($url_full); ?>" class="tbf-single-media" decoding="async" style="max-width: 100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); cursor: zoom-in;" onclick="tbfbkm_photofall.openRaw('<?php echo esc_url($url_full); ?>', 'image', '<?php echo esc_attr($item->post_title); ?>')">
               <?php endif; ?>
               
               <div class="tbf-single-info" style="margin-top: 30px;">
@@ -281,7 +281,7 @@ class TBFNMI_Photofall_Templates {
   public static function get_item_html($post) {
       $is_admin = current_user_can('manage_options') || is_super_admin();
       $tab = isset($_REQUEST['tbf_tab']) ? sanitize_text_field($_REQUEST['tbf_tab']) : 'active';
-      $hidden_items = get_option('tbfnmi_hidden_media', []);
+      $hidden_items = get_option('tbfbkm_hidden_media', []);
 
       $att_id = (int)($post->ID ?? $post->attachment_id ?? 0);
       $is_hidden = in_array($att_id, $hidden_items);
@@ -307,13 +307,13 @@ class TBFNMI_Photofall_Templates {
           $src = includes_url('images/media/audio.png');
       }
 
-      $master_id = (int) get_site_option('tbfnmi_master_controller_id', get_main_site_id());
+      $master_id = (int) get_site_option('tbfbkm_master_controller_id', get_main_site_id());
       $master_base = get_site_url($master_id, '/photo/');
       $item_blog_id = (int)($post->blog_id ?? get_current_blog_id());
       $permalink = $master_base . $type . '/' . $item_blog_id . '-' . $att_id . '/';
 
       global $wpdb;
-      $usage_table = $wpdb->base_prefix . 'tbfnmi_usage_map';
+      $usage_table = $wpdb->base_prefix . 'tbfbkm_usage_map';
       $has_usage_table = !empty($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $wpdb->esc_like($usage_table))));
       $source_title = '';
       $source_url = '';
@@ -326,7 +326,7 @@ class TBFNMI_Photofall_Templates {
           }
       }
       
-      $admin_nonce = wp_create_nonce('tbfnmi_admin_action');
+      $admin_nonce = wp_create_nonce('tbfbkm_admin_action');
       ob_start();
       
       // FIX: Restored the inline onmouseover/onmouseout logic so admin controls show correctly
@@ -335,16 +335,16 @@ class TBFNMI_Photofall_Templates {
         
         <?php if ( $is_admin ): ?>
             <div class="tbf-pf-admin-controls" style="display:none; position:absolute; top:10px; right:10px; z-index:10; background:rgba(0,0,0,0.8); padding:5px; border-radius:4px; gap:5px;">
-                <button type="button" onclick="tbfnmiToggleHide(<?php echo esc_attr($att_id); ?>, '<?php echo esc_attr($admin_nonce); ?>')" style="background:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold; color:#555;"><?php echo $tab === 'hidden' ? 'Unhide' : 'Hide'; ?></button>
-                <button type="button" onclick="tbfnmiDeleteMedia(<?php echo esc_attr($att_id); ?>, '<?php echo esc_attr($admin_nonce); ?>')" style="background:#d63638; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold;">Delete</button>
+                <button type="button" onclick="tbfbkmToggleHide(<?php echo esc_attr($att_id); ?>, '<?php echo esc_attr($admin_nonce); ?>')" style="background:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold; color:#555;"><?php echo $tab === 'hidden' ? 'Unhide' : 'Hide'; ?></button>
+                <button type="button" onclick="tbfbkmDeleteMedia(<?php echo esc_attr($att_id); ?>, '<?php echo esc_attr($admin_nonce); ?>')" style="background:#d63638; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold;">Delete</button>
             </div>
         <?php endif; ?>
 
         <div class="tbf-media-card">
-            <?php if ($type === 'video'): ?><div class="tbf-video-badge">▶</div><?php endif; ?>
-            <?php if ($type === 'audio'): ?><div class="tbf-video-badge" style="background:#2271b1;">🎵</div><?php endif; ?>
+            <?php if ($type === 'video'): ?><div class="tbf-video-badge">â–¶</div><?php endif; ?>
+            <?php if ($type === 'audio'): ?><div class="tbf-video-badge" style="background:#2271b1;">ðŸŽµ</div><?php endif; ?>
             
-            <a class="tbf-pf-card__link" href="<?php echo esc_url($permalink); ?>" onclick="event.preventDefault(); tbfnmi_photofall.open(this.querySelector('img'));">
+            <a class="tbf-pf-card__link" href="<?php echo esc_url($permalink); ?>" onclick="event.preventDefault(); tbfbkm_photofall.open(this.querySelector('img'));">
                 <img src="<?php echo esc_url($src); ?>" 
                      style="width:100%; height:auto; object-fit:cover;" 
                      loading="lazy" decoding="async" 
@@ -389,23 +389,23 @@ class TBFNMI_Photofall_Templates {
 
   private static function render_upload_modal() {
       ?>
-      <div id="tbfnmi-upload-modal" class="tbfnmi-modal-overlay">
-          <div class="tbfnmi-modal-content">
-              <span class="tbfnmi-modal-close" onclick="document.getElementById('tbfnmi-upload-modal').style.display='none'">&times;</span>
+      <div id="tbfbkm-upload-modal" class="tbfbkm-modal-overlay">
+          <div class="tbfbkm-modal-content">
+              <span class="tbfbkm-modal-close" onclick="document.getElementById('tbfbkm-upload-modal').style.display='none'">&times;</span>
               <h2 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:15px;">Upload to AgriGames</h2>
               
-              <div id="tbfnmi-upload-staging">
-                  <div class="tbfnmi-drop-zone" onclick="document.getElementById('tbfnmi-file-input').click()">
+              <div id="tbfbkm-upload-staging">
+                  <div class="tbfbkm-drop-zone" onclick="document.getElementById('tbfbkm-file-input').click()">
                       <span class="dashicons dashicons-upload" style="font-size:40px; height:40px; width:40px; color:#aaa;"></span>
                       <p style="margin:10px 0 0; color:#666;">Click to Select Images, Videos, or Audio</p>
-                      <input type="file" id="tbfnmi-file-input" multiple accept="image/*,video/*,audio/*" style="display:none;">
+                      <input type="file" id="tbfbkm-file-input" multiple accept="image/*,video/*,audio/*" style="display:none;">
                   </div>
                   
-                  <div id="tbfnmi-queue-list" class="tbfnmi-queue-list"></div>
+                  <div id="tbfbkm-queue-list" class="tbfbkm-queue-list"></div>
               </div>
 
               <div style="border-top:1px solid #eee; padding-top:15px; display:flex; justify-content:flex-end;">
-                  <button type="button" id="tbfnmi-start-upload" class="tbfnmi-upload-btn" disabled>Start Upload</button>
+                  <button type="button" id="tbfbkm-start-upload" class="tbfbkm-upload-btn" disabled>Start Upload</button>
               </div>
           </div>
       </div>
@@ -413,14 +413,14 @@ class TBFNMI_Photofall_Templates {
   }
 
   private static function enqueue_assets($max_pages = 1, $current_args = []) {
-      wp_enqueue_style('tbf-photofall', TBFNMI_URL . 'assets/css/photofall-public.css', ['dashicons'], TBFNMI_VER);
-      wp_enqueue_script('tbf-photofall', TBFNMI_URL . 'assets/js/photofall-public.js', [], TBFNMI_VER, true);
+      wp_enqueue_style('tbf-photofall', TBFBKM_URL . 'assets/css/photofall-public.css', ['dashicons'], TBFBKM_VER);
+      wp_enqueue_script('tbf-photofall', TBFBKM_URL . 'assets/js/photofall-public.js', [], TBFBKM_VER, true);
       
       $includes_url = includes_url();
       
-      wp_localize_script('tbf-photofall', 'tbfnmi_data', [
+      wp_localize_script('tbf-photofall', 'tbfbkm_data', [
           'ajax_url'    => admin_url('admin-ajax.php'),
-          'nonce'       => wp_create_nonce('tbfnmi_frontend'), 
+          'nonce'       => wp_create_nonce('tbfbkm_frontend'), 
           'includes_url'=> $includes_url,
           'max_pages'   => $max_pages,
           'current_page'=> 1,

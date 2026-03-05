@@ -1,11 +1,11 @@
-/**
+﻿/**
  * File: assets/js/photofall-public.js
  * Version: 6.9.5.5 (Smart Infinite Scroll + Upload Engine)
  */
 (function() {
     'use strict';
     
-    const dataObj = typeof tbfnmi_data !== 'undefined' ? tbfnmi_data : null;
+    const dataObj = typeof tbfbkm_data !== 'undefined' ? tbfbkm_data : null;
     const ajaxUrl = dataObj ? dataObj.ajax_url : '/wp-admin/admin-ajax.php';
 
     // 1. AUTO-SUBMIT FILTERS
@@ -38,7 +38,7 @@
             const currentTab = urlParams.get('tbf_tab') || 'active';
 
             const params = new URLSearchParams();
-            params.append('action', 'tbfnmi_load_more');
+            params.append('action', 'tbfbkm_load_more');
             params.append('nonce', dataObj.nonce);
             params.append('page', parseInt(dataObj.current_page) + 1);
             params.append('filter', dataObj.filter || 'all'); 
@@ -100,7 +100,7 @@
     }
 
     // 4. LIGHTBOX & SEO ENGINE
-    window.tbfnmi_photofall = {
+    window.tbfbkm_photofall = {
         currentTrigger: null,
         open: function(triggerImg) {
             this.currentTrigger = triggerImg;
@@ -188,31 +188,31 @@
 
     // Events for Lightbox
     const closeBtn = document.querySelector('.tbf-close'); 
-    if (closeBtn) closeBtn.addEventListener('click', () => tbfnmi_photofall.close());
+    if (closeBtn) closeBtn.addEventListener('click', () => tbfbkm_photofall.close());
     const nextBtn = document.querySelector('.tbf-next'); 
-    if (nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); tbfnmi_photofall.nav(1); });
+    if (nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); tbfbkm_photofall.nav(1); });
     const prevBtn = document.querySelector('.tbf-prev'); 
-    if (prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); tbfnmi_photofall.nav(-1); });
+    if (prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); tbfbkm_photofall.nav(-1); });
     
     const lb = document.getElementById('tbf-lightbox');
     if (lb) lb.addEventListener('click', (e) => { 
-        if (e.target.id === 'tbf-lightbox' || e.target.classList.contains('tbf-lightbox-content')) tbfnmi_photofall.close(); 
+        if (e.target.id === 'tbf-lightbox' || e.target.classList.contains('tbf-lightbox-content')) tbfbkm_photofall.close(); 
     });
     
     document.addEventListener('keydown', (e) => {
         if (lb && lb.style.display === 'flex') {
-            if (e.key === 'Escape') tbfnmi_photofall.close();
-            if (e.key === 'ArrowRight') tbfnmi_photofall.nav(1);
-            if (e.key === 'ArrowLeft') tbfnmi_photofall.nav(-1);
+            if (e.key === 'Escape') tbfbkm_photofall.close();
+            if (e.key === 'ArrowRight') tbfbkm_photofall.nav(1);
+            if (e.key === 'ArrowLeft') tbfbkm_photofall.nav(-1);
         }
     });
 
     // 5. STAGING QUEUE (Frontend Uploader)
-    const uploadBtn = document.getElementById('tbfnmi-trigger-upload');
-    const modal = document.getElementById('tbfnmi-upload-modal');
-    const fileInput = document.getElementById('tbfnmi-file-input');
-    const queueList = document.getElementById('tbfnmi-queue-list');
-    const startUploadBtn = document.getElementById('tbfnmi-start-upload');
+    const uploadBtn = document.getElementById('tbfbkm-trigger-upload');
+    const modal = document.getElementById('tbfbkm-upload-modal');
+    const fileInput = document.getElementById('tbfbkm-file-input');
+    const queueList = document.getElementById('tbfbkm-queue-list');
+    const startUploadBtn = document.getElementById('tbfbkm-start-upload');
     
     let uploadQueue = []; 
 
@@ -225,7 +225,7 @@
             fileInput.value = '';
         });
         
-        const modalCloseBtn = modal.querySelector('.tbfnmi-modal-close');
+        const modalCloseBtn = modal.querySelector('.tbfbkm-modal-close');
         if (modalCloseBtn) modalCloseBtn.addEventListener('click', () => modal.style.display = 'none');
         window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
 
@@ -237,30 +237,30 @@
                 files.forEach(file => {
                     const id = 'q-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
                     const itemDiv = document.createElement('div');
-                    itemDiv.className = 'tbfnmi-queue-item';
+                    itemDiv.className = 'tbfbkm-queue-item';
                     itemDiv.id = id;
                     
                     let thumbHtml = '';
                     if (file.type.startsWith('image/')) {
                         const src = URL.createObjectURL(file);
-                        thumbHtml = `<img src="${src}" class="tbfnmi-queue-thumb">`;
+                        thumbHtml = `<img src="${src}" class="tbfbkm-queue-thumb">`;
                     } else if (file.type.startsWith('video/')) {
-                        thumbHtml = `<div class="tbfnmi-queue-thumb" style="display:flex;align-items:center;justify-content:center;font-size:30px;">▶</div>`;
+                        thumbHtml = `<div class="tbfbkm-queue-thumb" style="display:flex;align-items:center;justify-content:center;font-size:30px;">â–¶</div>`;
                     } else {
-                        thumbHtml = `<div class="tbfnmi-queue-thumb" style="display:flex;align-items:center;justify-content:center;font-size:30px;">📄</div>`;
+                        thumbHtml = `<div class="tbfbkm-queue-thumb" style="display:flex;align-items:center;justify-content:center;font-size:30px;">ðŸ“„</div>`;
                     }
 
                     itemDiv.innerHTML = `
                         ${thumbHtml}
-                        <div class="tbfnmi-queue-fields">
-                            <input type="text" class="tbfnmi-q-title" placeholder="Title" value="${file.name.replace(/\.[^/.]+$/, "")}">
-                            <textarea class="tbfnmi-q-desc" placeholder="Description"></textarea>
-                            <div class="tbfnmi-progress-wrap">
-                                <div class="tbfnmi-progress-bar"></div>
+                        <div class="tbfbkm-queue-fields">
+                            <input type="text" class="tbfbkm-q-title" placeholder="Title" value="${file.name.replace(/\.[^/.]+$/, "")}">
+                            <textarea class="tbfbkm-q-desc" placeholder="Description"></textarea>
+                            <div class="tbfbkm-progress-wrap">
+                                <div class="tbfbkm-progress-bar"></div>
                             </div>
-                            <div class="tbfnmi-status-text">Ready</div>
+                            <div class="tbfbkm-status-text">Ready</div>
                         </div>
-                        <span class="tbfnmi-remove-item" title="Remove">&times;</span>
+                        <span class="tbfbkm-remove-item" title="Remove">&times;</span>
                     `;
                     queueList.appendChild(itemDiv);
                     uploadQueue.push({ id: id, file: file, dom: itemDiv });
@@ -273,8 +273,8 @@
 
         if (queueList) {
             queueList.addEventListener('click', function(e) {
-                if (e.target.classList.contains('tbfnmi-remove-item')) {
-                    const row = e.target.closest('.tbfnmi-queue-item');
+                if (e.target.classList.contains('tbfbkm-remove-item')) {
+                    const row = e.target.closest('.tbfbkm-queue-item');
                     if (row) {
                         const id = row.id;
                         uploadQueue = uploadQueue.filter(item => item.id !== id);
@@ -298,12 +298,12 @@
                     const itemDom = document.getElementById(item.id);
                     if (!itemDom) continue;
 
-                    const title = itemDom.querySelector('.tbfnmi-q-title').value;
-                    const desc = itemDom.querySelector('.tbfnmi-q-desc').value;
-                    const progressBar = itemDom.querySelector('.tbfnmi-progress-bar');
-                    const progressWrap = itemDom.querySelector('.tbfnmi-progress-wrap');
-                    const statusText = itemDom.querySelector('.tbfnmi-status-text');
-                    const removeBtn = itemDom.querySelector('.tbfnmi-remove-item');
+                    const title = itemDom.querySelector('.tbfbkm-q-title').value;
+                    const desc = itemDom.querySelector('.tbfbkm-q-desc').value;
+                    const progressBar = itemDom.querySelector('.tbfbkm-progress-bar');
+                    const progressWrap = itemDom.querySelector('.tbfbkm-progress-wrap');
+                    const statusText = itemDom.querySelector('.tbfbkm-status-text');
+                    const removeBtn = itemDom.querySelector('.tbfbkm-remove-item');
 
                     if(removeBtn) removeBtn.style.display = 'none';
                     progressWrap.style.display = 'block';
@@ -312,12 +312,12 @@
                     try {
                         await uploadSingleFile(item.file, title, desc, (percent) => { progressBar.style.width = percent + '%'; });
                         statusText.innerText = 'Complete';
-                        statusText.className = 'tbfnmi-status-text success';
+                        statusText.className = 'tbfbkm-status-text success';
                         progressBar.style.background = 'green';
                     } catch (err) {
                         console.error(err);
                         statusText.innerText = 'Error: ' + (err.message || 'Failed');
-                        statusText.className = 'tbfnmi-status-text error';
+                        statusText.className = 'tbfbkm-status-text error';
                         progressBar.style.background = 'red';
                     }
                 }
@@ -330,11 +330,11 @@
     function uploadSingleFile(file, title, desc, onProgress) {
         return new Promise((resolve, reject) => {
             const formData = new FormData();
-            formData.append('action', 'tbfnmi_frontend_upload');
+            formData.append('action', 'tbfbkm_frontend_upload');
             formData.append('security', dataObj.nonce);
-            formData.append('tbfnmi_title', title);
-            formData.append('tbfnmi_description', desc);
-            formData.append('tbfnmi_media[]', file);
+            formData.append('tbfbkm_title', title);
+            formData.append('tbfbkm_description', desc);
+            formData.append('tbfbkm_media[]', file);
 
             const xhr = new XMLHttpRequest();
             xhr.upload.addEventListener("progress", function(evt) {
@@ -359,18 +359,18 @@
     }
 
     // Admin Tools
-    window.tbfnmiToggleHide = function(id, nonce) {
+    window.tbfbkmToggleHide = function(id, nonce) {
         const formData = new FormData();
-        formData.append('action', 'tbfnmi_hide_media');
+        formData.append('action', 'tbfbkm_hide_media');
         formData.append('attachment_id', id);
         formData.append('nonce', nonce);
         fetch(ajaxUrl, { method: 'POST', body: formData }).then(res => res.json()).then(data => { if(data.success) location.reload(); });
     };
 
-    window.tbfnmiDeleteMedia = function(id, nonce) {
+    window.tbfbkmDeleteMedia = function(id, nonce) {
         if (!confirm('WARNING: Permanently delete?')) return;
         const formData = new FormData();
-        formData.append('action', 'tbfnmi_delete_media');
+        formData.append('action', 'tbfbkm_delete_media');
         formData.append('attachment_id', id);
         formData.append('nonce', nonce);
         fetch(ajaxUrl, { method: 'POST', body: formData }).then(res => res.json()).then(data => { if(data.success) location.reload(); });

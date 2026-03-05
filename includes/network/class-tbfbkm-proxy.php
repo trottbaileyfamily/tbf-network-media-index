@@ -1,13 +1,13 @@
 <?php
 /**
- * File: includes/network/class-tbfnmi-proxy.php
+ * File: includes/network/class-tbfbkm-proxy.php
  * Version: 6.9.6 (Big King Proxy Engine)
  * Description: Creates virtual attachments for external or cross-network media.
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Proxy {
+class TBFBKM_Proxy {
 
   /**
    * Creates a "Proxy" attachment that points to a remote URL.
@@ -60,13 +60,13 @@ class TBFNMI_Proxy {
     if ( is_wp_error($attach_id) ) return $attach_id;
 
     // 5. Add Big King Meta Data
-    update_post_meta($attach_id, '_tbfnmi_is_proxy', 1);
-    update_post_meta($attach_id, '_tbfnmi_proxy_source', $args['source']);
-    update_post_meta($attach_id, '_tbfnmi_remote_url', $args['url']);
+    update_post_meta($attach_id, '_tbfbkm_is_proxy', 1);
+    update_post_meta($attach_id, '_tbfbkm_proxy_source', $args['source']);
+    update_post_meta($attach_id, '_tbfbkm_remote_url', $args['url']);
 
     if ( !empty($args['origin_blog_id']) ) {
-        update_post_meta($attach_id, '_tbfnmi_origin_blog', $args['origin_blog_id']);
-        update_post_meta($attach_id, '_tbfnmi_origin_id', $args['origin_attachment_id']);
+        update_post_meta($attach_id, '_tbfbkm_origin_blog', $args['origin_blog_id']);
+        update_post_meta($attach_id, '_tbfbkm_origin_id', $args['origin_attachment_id']);
     }
 
     if ( !empty($args['extra_meta']) && is_array($args['extra_meta']) ) {
@@ -96,7 +96,7 @@ class TBFNMI_Proxy {
       
       // Check meta key first (Faster than GUID scan)
       $query = $wpdb->prepare(
-          "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_tbfnmi_remote_url' AND meta_value = %s LIMIT 1", 
+          "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_tbfbkm_remote_url' AND meta_value = %s LIMIT 1", 
           $url
       );
       $id = $wpdb->get_var($query);

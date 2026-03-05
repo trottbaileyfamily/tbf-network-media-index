@@ -1,19 +1,19 @@
 <?php
 /**
- * File: includes/integrations/class-tbfnmi-vikinger-bridge.php
+ * File: includes/integrations/class-tbfbkm-vikinger-bridge.php
  * Version: 6.2.2 (Zero-Disk-Space Sync)
  */
 
 if ( ! defined('ABSPATH') ) exit;
 
-class TBFNMI_Vikinger_Bridge {
+class TBFBKM_Vikinger_Bridge {
 
     public static function init() {
-        add_action('wp_ajax_tbfnmi_sync_vikinger', [__CLASS__, 'ajax_sync_vikinger']);
+        add_action('wp_ajax_tbfbkm_sync_vikinger', [__CLASS__, 'ajax_sync_vikinger']);
     }
 
     public static function ajax_sync_vikinger() {
-        check_ajax_referer('tbfnmi_indexer_run', 'nonce');
+        check_ajax_referer('tbfbkm_indexer_run', 'nonce');
         if ( ! current_user_can('manage_network_options') ) wp_send_json_error('Unauthorized');
 
         $blog_id = isset($_POST['blog_id']) ? (int)$_POST['blog_id'] : get_current_blog_id();
@@ -108,8 +108,8 @@ class TBFNMI_Vikinger_Bridge {
                     // Remove the filter immediately so we don't break manual user uploads
                     remove_filter('intermediate_image_sizes_advanced', '__return_empty_array', 999);
                     
-                    if ( class_exists('TBFNMI_Indexer') ) {
-                        $indexer = new TBFNMI_Indexer();
+                    if ( class_exists('TBFBKM_Indexer') ) {
+                        $indexer = new TBFBKM_Indexer();
                         if ( method_exists($indexer, 'index_single_attachment') ) {
                             $indexer->index_single_attachment($attach_id);
                         }

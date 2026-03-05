@@ -1,4 +1,4 @@
-/* global jQuery, wp, tbfnmi_gutenberg */
+﻿/* global jQuery, wp, tbfbkm_gutenberg */
 /* =========================================================
    File: assets/js/gutenberg-sidebar.js
    Version: 6.5.15 (DOM Sync & Native Parsing Fix)
@@ -28,12 +28,12 @@
         const [loading, setLoading] = useState(false);
 
         useEffect(() => {
-            if (meta && typeof meta._tbfnmi_featured_url !== 'undefined' && meta._tbfnmi_featured_url !== '') {
-                setPreviewUrl(decodeUrl(meta._tbfnmi_featured_url));
+            if (meta && typeof meta._tbfbkm_featured_url !== 'undefined' && meta._tbfbkm_featured_url !== '') {
+                setPreviewUrl(decodeUrl(meta._tbfbkm_featured_url));
             } else {
                 setPreviewUrl('');
             }
-        }, [meta._tbfnmi_featured_url]);
+        }, [meta._tbfbkm_featured_url]);
 
         const openMediaModal = () => {
             const frame = wp.media({
@@ -59,20 +59,20 @@
                 editPost({ 
                     meta: { 
                         ...meta, 
-                        _tbfnmi_featured_url: finalUrl,
-                        _tbfnmi_featured_mime: finalMime,
-                        _tbfnmi_featured_type: finalType
+                        _tbfbkm_featured_url: finalUrl,
+                        _tbfbkm_featured_mime: finalMime,
+                        _tbfbkm_featured_type: finalType
                     } 
                 });
 
                 if (postId) {
                     $.ajax({
-                        url: tbfnmi_gutenberg.ajaxurl,
+                        url: tbfbkm_gutenberg.ajaxurl,
                         method: 'POST',
                         dataType: 'json',
                         data: {
-                            action: 'tbfnmi_set_featured_remote',
-                            nonce: tbfnmi_gutenberg.nonce,
+                            action: 'tbfbkm_set_featured_remote',
+                            nonce: tbfbkm_gutenberg.nonce,
                             post_id: postId,
                             url: finalUrl,
                             mime: finalMime,
@@ -100,9 +100,9 @@
             editPost({ 
                 meta: { 
                     ...meta, 
-                    _tbfnmi_featured_url: '', 
-                    _tbfnmi_featured_mime: '', 
-                    _tbfnmi_featured_type: '' 
+                    _tbfbkm_featured_url: '', 
+                    _tbfbkm_featured_mime: '', 
+                    _tbfbkm_featured_type: '' 
                 }, 
                 featured_media: 0 
             });
@@ -112,22 +112,22 @@
 
         return createElement(
             PluginDocumentSettingPanel,
-            { name: 'tbfnmi-featured-media-panel', title: 'TBF Network Featured Image', icon: 'images-alt2' },
-            createElement('div', { className: 'tbfnmi-featured-image-wrapper' },
+            { name: 'tbfbkm-featured-media-panel', title: 'TBF Network Featured Image', icon: 'images-alt2' },
+            createElement('div', { className: 'tbfbkm-featured-image-wrapper' },
                 loading ? createElement(Spinner, null) : null,
                 previewUrl && !loading ? createElement('img', { 
                     src: previewUrl, 
-                    className: 'tbfnmi-sidebar-preview',
+                    className: 'tbfbkm-sidebar-preview',
                     referrerPolicy: 'no-referrer' 
                 }) : null,
-                createElement(Button, { isPrimary: !previewUrl, isSecondary: !!previewUrl, className: 'tbfnmi-sidebar-btn', onClick: openMediaModal }, previewUrl ? 'Replace Image' : 'Set Network Image'),
+                createElement(Button, { isPrimary: !previewUrl, isSecondary: !!previewUrl, className: 'tbfbkm-sidebar-btn', onClick: openMediaModal }, previewUrl ? 'Replace Image' : 'Set Network Image'),
                 previewUrl ? createElement(Button, { isDestructive: true, isLink: true, style: { display: 'block', textAlign: 'center', marginTop: '10px', textDecoration: 'none' }, onClick: removeMedia }, 'Remove Image') : null
             )
         );
     };
 
     wp.domReady(() => {
-        registerPlugin('tbfnmi-gutenberg-sidebar', { render: TBFNetworkFeaturedImage, icon: 'images-alt2' });
+        registerPlugin('tbfbkm-gutenberg-sidebar', { render: TBFNetworkFeaturedImage, icon: 'images-alt2' });
     });
 
 })(window.wp, window.jQuery);

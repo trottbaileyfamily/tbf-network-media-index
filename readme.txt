@@ -1,10 +1,10 @@
-=== TBF Big King Media: Multisite Shared Library +Photofall ===
+﻿=== TBF Big King Media: Multisite Shared Library +Photofall ===
 Contributors: sherikatrottbailey, kimroybailey, trottbaileyfamily
 Tags: multisite media library, share media across multisite, network media, multisite global media, pinterest gallery
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 6.9.24
+Stable tag: 7.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ The ultimate WordPress multisite media library. Browse, search, and insert media
 
 == Description ==
 
-**TBF Big King Media: Multisite Shared Library +Photofall** is the most powerful and highly optimized multisite media solution for WordPress. It allows administrators and users of a WordPress Multisite network to access, search, and insert media from every single subsite through one unified **Global Network Media** tab—without ever duplicating or copying physical files across your server.
+**TBF Big King Media: Multisite Shared Library +Photofall** is the most powerful and highly optimized multisite media solution for WordPress. It allows administrators and users of a WordPress Multisite network to access, search, and insert media from every single subsite through one unified **Global Network Media** tabâ€”without ever duplicating or copying physical files across your server.
 
 This plugin was built out of necessity to manage over **10,000 images, videos, and audio files** documenting the road to bringing **AgriGames** to life. 
 
@@ -24,17 +24,17 @@ Experience the sheer scale of the Big King Media and the World Ruler Sher Photof
 Learn more about the plugin on our official landing page:
 [**TBF Network Media Index Official Page**](https://trottbaileyfamily.com/tbf-big-king-media)
 
-### 🚀 Powerful Core Features
+### ðŸš€ Powerful Core Features
 
 * **Global Network Indexer:** Scans and indexes images, videos, and audio across thousands of subsites in real-time, using safe chunked-processing to prevent server timeouts.
-* **The "Photofall" Gallery:** A gorgeous, Pinterest-style frontend masonry grid that natively renders your entire network’s media. Includes advanced sorting, live search, and dynamic filtering by year, media type, and origin site.
+* **The "Photofall" Gallery:** A gorgeous, Pinterest-style frontend masonry grid that natively renders your entire networkâ€™s media. Includes advanced sorting, live search, and dynamic filtering by year, media type, and origin site.
 * **Vikinger & BuddyPress Bridge:** Automatically syncs frontend member uploads from custom theme directories directly into the WordPress Media Library for network-wide availability. Enforces strict Admin/Super Admin rules for security.
 * **Zero-Duplication Proxy System:** Insert images or set Gutenberg Featured Images from any site. The plugin creates a lightweight, DB-only proxy rather than copying the physical file, saving massive amounts of server storage and preserving inodes.
 * **Universal Lightbox:** A custom-built, responsive frontend lightbox that natively supports looping video, audio tracks, and high-res imagery with keyboard navigation.
 
 == The Vision, Philosophy & The Trott Bailey Family ==
 
-Developed by a husband and wife team, we represent the world's wealthiest family—but we are redefining wealth. Our net worth is not measured in dollars; it is measured by our competent legacy: Keilah, Kaleeyon, and Kezidek, and our global impact of building a money-free world via the Trott Bailey Family Kingdom AgriGames. Hence, this premium plugin will always be 100% free.
+Developed by a husband and wife team, we represent the world's wealthiest familyâ€”but we are redefining wealth. Our net worth is not measured in dollars; it is measured by our competent legacy: Keilah, Kaleeyon, and Kezidek, and our global impact of building a money-free world via the Trott Bailey Family Kingdom AgriGames. Hence, this premium plugin will always be 100% free.
 
 The heart of all AgriGames and Trott Bailey Family Kingdom is for families to enjoy themselves in a free environment that they never have to think about price for anything. AgriGames venues are unique places chosen for their beauty or utility. No two AgriGames are exactly alike. The heart of AgriGames never changes though; it's a place where each member of the family has things to do that absolutely delights them, from the babies to the young kids, teens, and the parents. 
 
@@ -115,7 +115,7 @@ Absolutely. The background indexer and the frontend "Load More" AJAX features ar
 * **UX:** Added "Live" and "Hidden" tabs to the Photofall grid for easier content curation.
 
 = 6.6.2 =
-* **PERFORMANCE:** Introduced `tbfnmi_usage_map` database table for lightning-fast SEO queries.
+* **PERFORMANCE:** Introduced `tbfbkm_usage_map` database table for lightning-fast SEO queries.
 * **SEO:** Real-time `save_post` crawler to track image usage across the network instantly.
 
 = 6.5.0 =
@@ -123,10 +123,10 @@ Absolutely. The background indexer and the frontend "Load More" AJAX features ar
 * PERFORMANCE: Removed legacy inline `<script>` tags in favor of native `wp_add_inline_script` and strict `wp_json_encode` for all JavaScript variables.
 * FEATURE: Upgraded Gutenberg React Architecture to seamlessly bypass core block API deprecations.
 * FIX: Resolved internal Server 500 error during high-capacity image uploads by neutering physical thumbnail generation.
-* FIX: Synced plugin versioning and registered `tbf-network-media-index` text domain for translation support.
+* FIX: Synced plugin versioning and registered `tbf-big-king-media` text domain for translation support.
 
 = 6.1.1 =
-* MAJOR: 100% WordPress Directory Compliance update (standardized all prefixes to `tbfnmi_` and aligned text-domains strictly to `tbf-network-media-index`).
+* MAJOR: 100% WordPress Directory Compliance update (standardized all prefixes to `tbfbkm_` and aligned text-domains strictly to `tbf-big-king-media`).
 * FEATURE: Deep Vikinger Theme Bridge. Automatically scans custom `/vikinger/` frontend upload directories to bridge orphaned media.
 * FEATURE: Strict Admin-Only Enforcer. Securely rejects any uploads not belonging to an Administrator or Super Admin.
 * FEATURE: Native Audio Support. The global indexer, masonry grid, and universal lightbox now fully parse and play `.mp3` and `.wav` formats.
