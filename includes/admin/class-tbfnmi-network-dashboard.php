@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/admin/class-tbfnmi-network-dashboard.php
- * Version: 6.9.5.4 (Princess Keilah Edition)
+ * Version: 6.9.6.1 (Consolidated Big King Media Dashboard)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -15,14 +15,14 @@ class TBFNMI_Network_Dashboard {
   }
 
   public static function add_network_page() {
-    add_menu_page(
+    // MOVED: To Submenu of Settings (Compliance with WP High Position Rule)
+    add_submenu_page(
+      'settings.php',
       'Big King Media',
       'Big King Media',
       'manage_network_options',
       'tbfnmi-network',
-      [__CLASS__, 'render_dashboard'],
-      'dashicons-cloud',
-      21
+      [__CLASS__, 'render_dashboard']
     );
   }
 
@@ -36,17 +36,26 @@ class TBFNMI_Network_Dashboard {
       
       if ( ! current_user_can('manage_network_options') ) wp_die('Access Denied');
 
+      // 1. Master ID
       $master_id = isset($_POST['tbfnmi_master_id']) ? (int)$_POST['tbfnmi_master_id'] : get_main_site_id();
       update_site_option('tbfnmi_master_controller_id', $master_id);
 
+      // 2. Active Sites
       $active_sites = isset($_POST['tbfnmi_active_sites']) ? array_map('intval', $_POST['tbfnmi_active_sites']) : [];
       update_site_option('tbfnmi_network_active_sites', $active_sites);
 
+      // 3. Behavior
       $behavior = [
           'open_default' => isset($_POST['tbfnmi_global_open']) ? 1 : 0,
           'auto_start'   => isset($_POST['tbfnmi_global_autostart']) ? 1 : 0
       ];
       update_site_option('tbfnmi_network_behavior', $behavior);
+
+      // 4. Merged Legacy Settings (Who Can Browse / Insert Mode)
+      $legacy = get_site_option('tbfnmi_settings', []);
+      $legacy['who_can_browse'] = sanitize_text_field($_POST['tbfnmi_who_browse'] ?? 'uploaders');
+      $legacy['insert_mode']    = sanitize_text_field($_POST['tbfnmi_insert_mode'] ?? 'proxy');
+      update_site_option('tbfnmi_settings', $legacy);
 
       wp_redirect(add_query_arg(['page' => 'tbfnmi-network', 'updated' => 'true'], network_admin_url('admin.php')));
       exit;
@@ -63,6 +72,11 @@ class TBFNMI_Network_Dashboard {
     if(!is_array($active_sites)) $active_sites = [];
     
     $behavior = get_site_option('tbfnmi_network_behavior', ['open_default' => 0, 'auto_start' => 0]);
+    
+    // Legacy merged options
+    $legacy = get_site_option('tbfnmi_settings', []);
+    $who = $legacy['who_can_browse'] ?? 'uploaders';
+    $insert = $legacy['insert_mode'] ?? 'proxy';
     ?>
     <div class="wrap">
       <h1>Big King Media Command Center</h1>
@@ -91,8 +105,33 @@ class TBFNMI_Network_Dashboard {
                   </select>
               </div>
 
-              <h3>Global Activation (Site Selector)</h3>
-              <p>Select which sites should display the gadget.</p>
+              <table class="form-table">
+                  <tr valign="top">
+                      <th scope="row">Permission Level</th>
+                      <td>
+                          <select name="tbfnmi_who_browse">
+                              <option value="uploaders" <?php selected('uploaders', $who); ?>>Uploaders & Admins</option>
+                              <option value="admins" <?php selected('admins', $who); ?>>Admins Only</option>
+                          </select>
+                          <p class="description">Who can access the global media library?</p>
+                      </td>
+                  </tr>
+                  <tr valign="top">
+                      <th scope="row">Insertion Mode</th>
+                      <td>
+                          <select name="tbfnmi_insert_mode">
+                              <option value="proxy" <?php selected('proxy', $insert); ?>>Smart Proxy (Recommended)</option>
+                              <option value="url" <?php selected('url', $insert); ?>>Direct URL</option>
+                          </select>
+                          <p class="description">How files are inserted into posts.</p>
+                      </td>
+                  </tr>
+              </table>
+
+              <hr>
+
+              <h3>Global Activation (Princess Keilah Gadget)</h3>
+              <p>Select which sites should display the floating gadget.</p>
               
               <div style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; background: #f9f9f9; margin: 15px 0;">
                   <label style="font-weight:bold; display:block; margin-bottom:10px; border-bottom:1px solid #ccc; padding-bottom:5px;">
@@ -109,10 +148,10 @@ class TBFNMI_Network_Dashboard {
                   <?php endforeach; ?>
               </div>
 
-              <h3>Global Behavior Defaults</h3>
+              <h3>Gadget Behavior</h3>
               <label style="margin-right: 20px; font-weight: 500;">
                   <input type="checkbox" name="tbfnmi_global_open" value="1" <?php checked(1, $behavior['open_default']); ?>> 
-                  Open Gadget by Default
+                  Open by Default
               </label>
               <label style="font-weight: 500;">
                   <input type="checkbox" name="tbfnmi_global_autostart" value="1" <?php checked(1, $behavior['auto_start']); ?>> 

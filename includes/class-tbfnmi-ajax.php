@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/class-tbfnmi-ajax.php
- * Version: 6.9.5.7 (Cross-Network Audio Fix)
+ * Version: 6.9.19 (Fix: Restored Indexer Batch Engine & Audio Tools)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -23,14 +23,18 @@ class TBFNMI_AJAX {
     add_action('wp_ajax_tbfnmi_proxy_url', [__CLASS__, 'proxy_url']);
     add_action('wp_ajax_tbfnmi_set_featured_remote', [__CLASS__, 'set_featured_remote']);
     
+    // Custom Audio Thumbnail Action
+    add_action('wp_ajax_tbfnmi_set_audio_thumb', [__CLASS__, 'set_audio_thumb']);
+    
     // Frontend Management
     add_action('wp_ajax_tbfnmi_frontend_upload', [__CLASS__, 'frontend_upload']);
     add_action('wp_ajax_tbfnmi_hide_media', [__CLASS__, 'hide_media']);
     add_action('wp_ajax_tbfnmi_delete_media', [__CLASS__, 'delete_media']);
     
-    // Admin Tools
+    // Admin Tools & Dashboard Engine
     add_action('wp_ajax_tbfnmi_resolve_ids', [__CLASS__, 'resolve_ids']);
     add_action('wp_ajax_tbfnmi_wipe_index', [__CLASS__, 'wipe_index']);
+    add_action('wp_ajax_tbfnmi_process_batch', [__CLASS__, 'process_batch']); // FIX: Restored missing indexer hook
     
     // Princess Keilah Music
     add_action('wp_ajax_tbfnmi_get_all_audio_ids', [__CLASS__, 'get_all_audio_ids']);
@@ -39,7 +43,67 @@ class TBFNMI_AJAX {
   }
 
   // ==========================================================================
-  // 1. PRINCESS KEILAH MUSIC ENGINE
+  // 1. DASHBOARD INDEXER ENGINE (FIXED)
+  // ==========================================================================
+
+  public static function process_batch() {
+      // Security Check
+      if ( ! current_user_can('manage_network_options') && ! current_user_can('manage_options') ) {
+          wp_send_json_error(['message' => 'Forbidden'], 403);
+      }
+
+      $step = max(1, (int)($_POST['step'] ?? 1));
+      $offset = max(0, (int)($_POST['offset'] ?? 0));
+      $limit = 100; // Safe batch size to prevent timeouts
+
+      // Get all active sites to index
+      $sites = is_multisite() ? get_sites(['number' => 1000, 'public' => 1, 'archived' => 0, 'spam' => 0, 'deleted' => 0]) : [ (object)['blog_id' => get_current_blog_id()] ];
+      
+      $total_sites = count($sites);
+      $current_index = $step - 1;
+
+      // Check if we are done with all sites
+      if ( $current_index >= $total_sites ) {
+          wp_send_json_success(['progress' => 100, 'message' => 'Network Indexing Complete!', 'done' => true]);
+      }
+
+      $blog_id = (int)$sites[$current_index]->blog_id;
+      
+      // Load the Indexer Class safely
+      if ( ! class_exists('TBFNMI_Indexer') ) {
+          require_once plugin_dir_path(__FILE__) . 'indexer/class-tbfnmi-indexer.php';
+      }
+      
+      $indexer = new TBFNMI_Indexer();
+      $res = $indexer->index_site_batch($blog_id, ['limit' => $limit, 'start_after' => $offset]);
+
+      if ( isset($res['error']) && !empty($res['error']) ) {
+          wp_send_json_error(['message' => 'Indexer Error on Site ' . $blog_id . ': ' . $res['error']]);
+      }
+
+      $next_offset = $res['last_id'];
+      $next_step = $step;
+      
+      // If done with this specific site, move to the next site
+      if ( !empty($res['done']) ) {
+          $next_step++;
+          $next_offset = 0;
+      }
+
+      $progress = min(99, round(($current_index / $total_sites) * 100));
+      
+      wp_send_json_success([
+          'progress' => $progress,
+          'message' => "Scanning Site ID: {$blog_id}... (" . ($res['indexed'] ?? 0) . " items indexed)",
+          'done' => false,
+          'step' => $next_step,
+          'offset' => $next_offset
+      ]);
+  }
+
+
+  // ==========================================================================
+  // 2. PRINCESS KEILAH MUSIC ENGINE
   // ==========================================================================
 
   public static function get_all_audio_ids() {
@@ -59,7 +123,6 @@ class TBFNMI_AJAX {
       $tracks = [];
       $ids = array_slice($ids, 0, 500); 
       
-      // Determine Master Site ID
       $master_id = (int) get_site_option('tbfnmi_master_controller_id', 0);
       if ( $master_id <= 0 ) $master_id = get_main_site_id();
       $current_id = get_current_blog_id();
@@ -71,13 +134,11 @@ class TBFNMI_AJAX {
           $url = '';
           $title = '';
 
-          // A. Try Local Site First
           $local_url = wp_get_attachment_url($id);
           if ( $local_url ) {
               $url = $local_url;
               $title = get_the_title($id);
           } 
-          // B. Try Master Site (If we aren't already on it)
           elseif ( $master_id && $master_id !== $current_id ) {
               switch_to_blog($master_id);
               $remote_url = wp_get_attachment_url($id);
@@ -88,7 +149,6 @@ class TBFNMI_AJAX {
               restore_current_blog();
           }
 
-          // C. If still failed, try Big King Index Table (Last Resort)
           if ( empty($url) ) {
               global $wpdb;
               $index_table = $wpdb->base_prefix . 'tbfnmi_index';
@@ -112,7 +172,7 @@ class TBFNMI_AJAX {
   }
 
   // ==========================================================================
-  // 2. QUERY ENGINE (Slideshow & Photofall)
+  // 3. QUERY ENGINE (Slideshow & Photofall)
   // ==========================================================================
 
   public static function load_more() {
@@ -123,7 +183,7 @@ class TBFNMI_AJAX {
       if($mime === 'all') $mime = ''; 
       
       $sort = sanitize_text_field($_POST['sort'] ?? '');
-      $orderby = 'date';
+      $orderby = 'date_desc';
       if($sort === 'oldest') $orderby = 'date_asc';
       if($sort === 'random') $orderby = 'rand';
 
@@ -133,30 +193,26 @@ class TBFNMI_AJAX {
           wp_send_json_success(['html' => '', 'max_pages' => 0]);
       }
 
+      if ( ! class_exists('TBFNMI_Photofall_Templates') ) {
+          require_once plugin_dir_path(__FILE__) . 'photofall/class-tbfnmi-photofall-templates.php';
+      }
+
       ob_start();
       foreach($data['items'] as $item) {
-          $full = esc_url($item['url']);
-          $thumb = esc_url($item['thumb']);
-          $type = esc_attr($item['media_type']);
-          $caption = esc_attr($item['title']); 
-          $permalink = get_site_url($item['blog_id'], '/') . '?attachment_id=' . $item['attachment_id']; 
+          $post = new stdClass();
+          $post->ID = $item['attachment_id'];
+          $post->attachment_id = $item['attachment_id'];
+          $post->blog_id = $item['blog_id'];
+          $post->post_title = $item['title'];
+          $post->title = $item['title']; 
+          $post->post_excerpt = $item['caption']; 
+          $post->caption = $item['caption']; 
+          $post->type = $item['media_type'];
+          $post->media_type = $item['media_type'];
+          $post->tbf_url_full = $item['url'];
+          $post->tbf_url_thumb = $item['thumb'];
 
-          echo '<div class="tbf-grid-item">';
-          echo '<img class="tbf-photofall-img" 
-                     src="' . $thumb . '" 
-                     loading="lazy"
-                     data-full="' . $full . '" 
-                     data-type="' . $type . '" 
-                     data-caption="' . $caption . '" 
-                     data-source-title="Site ' . $item['blog_id'] . '" 
-                     data-source-url="' . $permalink . '" 
-                     data-permalink="' . $permalink . '" 
-                     onclick="tbfnmi_photofall.open(this)" />';
-          
-          if($type === 'video') {
-              echo '<span class="tbf-type-icon">▶</span>';
-          }
-          echo '</div>';
+          echo wp_kses(TBFNMI_Photofall_Templates::get_item_html($post), TBFNMI_Photofall_Templates::get_allowed_html());
       }
       $html = ob_get_clean();
 
@@ -234,7 +290,7 @@ class TBFNMI_AJAX {
     if ( $orderby === 'rand' ) $order_sql = "ORDER BY RAND()";
 
     $sql = "SELECT 
-                MIN(blog_id) as blog_id, MAX(attachment_id) as attachment_id, MAX(title) as title, MAX(mime) as mime, MAX(media_type) as media_type, 
+                MIN(blog_id) as blog_id, MAX(attachment_id) as attachment_id, MAX(title) as title, MAX(caption) as caption, MAX(mime) as mime, MAX(media_type) as media_type, 
                 url_full, MAX(url_medium) as url_medium, MAX(url_thumb) as url_thumb, MAX(poster_url) as poster_url, MIN(created_gmt) as created_gmt,
                 MAX(width) as width, MAX(height) as height
             FROM {$table} WHERE {$where} GROUP BY url_full {$order_sql} LIMIT %d OFFSET %d";
@@ -245,11 +301,18 @@ class TBFNMI_AJAX {
     $items = [];
     foreach ((array)$rows as $r) {
       $thumb = $r['url_thumb'] ?: ($r['poster_url'] ?: ($r['url_medium'] ?: $r['url_full']));
-      if ($r['media_type'] === 'audio') $thumb = includes_url('images/media/audio.png');
+      
+      if ($r['media_type'] === 'audio') {
+          if (preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $thumb)) {
+              $thumb = includes_url('images/media/audio.png');
+          }
+      }
+
       $items[] = [
         'blog_id' => (int)$r['blog_id'], 
         'attachment_id' => (int)$r['attachment_id'], 
         'title' => (string)($r['title'] ?? ''), 
+        'caption' => (string)($r['caption'] ?? ''), 
         'url' => (string)($r['url_full'] ?? ''), 
         'thumb' => (string)$thumb, 
         'mime' => (string)($r['mime'] ?? ''), 
@@ -263,7 +326,7 @@ class TBFNMI_AJAX {
   }
 
   // ==========================================================================
-  // 3. FRONTEND UPLOADER (No Changes Needed)
+  // 4. FRONTEND UPLOADER 
   // ==========================================================================
   
   public static function frontend_upload() {
@@ -339,7 +402,7 @@ class TBFNMI_AJAX {
   }
 
   // ==========================================================================
-  // 4. ADMIN TOOLS
+  // 5. ADMIN TOOLS
   // ==========================================================================
 
   public static function wipe_index() {
@@ -384,8 +447,38 @@ class TBFNMI_AJAX {
   }
 
   // ==========================================================================
-  // 5. PROXY & FEATURED
+  // 6. PROXY, FEATURED & CUSTOM THUMBNAILS
   // ==========================================================================
+
+  public static function set_audio_thumb() {
+      if ( ! current_user_can('upload_files') ) wp_send_json_error(['message' => 'Permission denied'], 403);
+      
+      $audio_blog_id = (int)($_POST['audio_blog_id'] ?? 0);
+      $audio_id      = (int)($_POST['audio_id'] ?? 0);
+      $thumb_url     = esc_url_raw($_POST['thumb_url'] ?? '');
+
+      if ( ! $audio_id || ! $thumb_url ) {
+          wp_send_json_error(['message' => 'Missing data'], 400);
+      }
+
+      // Save locally to origin blog so it survives future sweeps
+      if ( is_multisite() ) switch_to_blog($audio_blog_id);
+      update_post_meta($audio_id, '_tbfnmi_custom_thumb_url', $thumb_url);
+      if ( is_multisite() ) restore_current_blog();
+
+      // Ensure table updates instantly
+      global $wpdb;
+      $table = $wpdb->base_prefix . 'tbfnmi_index';
+      $wpdb->update(
+          $table,
+          ['poster_url' => $thumb_url, 'url_thumb' => $thumb_url],
+          ['blog_id' => $audio_blog_id, 'attachment_id' => $audio_id],
+          ['%s', '%s'],
+          ['%d', '%d']
+      );
+
+      wp_send_json_success(['message' => 'Thumbnail updated', 'thumb_url' => $thumb_url]);
+  }
 
   public static function proxy() {
     if ( ! current_user_can('upload_files') ) wp_send_json_error(['message' => 'Permission denied'], 403);
@@ -417,7 +510,6 @@ class TBFNMI_AJAX {
   }
 
   public static function proxy_url() {
-    // Same proxy logic for external URLs
     if ( ! current_user_can('upload_files') ) wp_send_json_error(['message' => 'Permission denied'], 403);
     $url = esc_url_raw((string)($_POST['url'] ?? ''));
     if ( !$url ) wp_send_json_error(['message' => 'Missing URL'], 400);

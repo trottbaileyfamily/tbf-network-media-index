@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/admin/class-tbfnmi-subsite-settings.php
- * Version: 6.9.3 (Auto-Start, Drag-Drop Reordering & Sortable Images)
+ * Version: 6.9.13 (Moved to Media Menu)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -26,7 +26,7 @@ class TBFNMI_Subsite_Settings {
           'show_sort' => 1,
           'show_random' => 1,
           
-          // SEO
+          // Kaleeyon SEO
           'seo_interlink_origin' => 1, 
           'enable_xml_sitemaps' => 1,
           
@@ -38,23 +38,25 @@ class TBFNMI_Subsite_Settings {
           'enable_frontend_upload' => 0,
           'upload_roles' => ['administrator'],
           
-          // Queen Keilah (World Ruler)
+          // Princess Keilah Studio
           'enable_world_ruler' => 0,
           'wr_open_default' => 0, 
-          'wr_auto_start' => 0, // NEW: Auto Start
+          'wr_auto_start' => 0,
           'wr_network_wide' => 0, 
           'wr_visual_mode' => 'random',
           'wr_specific_ids' => '',
           'wr_duration' => 5,
-          'wr_playlists_json' => '[{"name":"Queen Keilah Default","tracks":[]}]'
+          'wr_playlists_json' => '[{"name":"Princess Keilah Default","tracks":[]}]'
       ];
       $opts = get_option('tbfnmi_photofall_options', []);
       return array_merge($defaults, is_array($opts) ? $opts : []);
   }
 
   public static function add_page() {
-    $title = is_multisite() ? 'Photofall & Network Settings' : 'Media Index Settings';
-    add_options_page(
+    $title = 'Big King Media';
+    // MOVED: Registers under the "Media" tab (upload.php) instead of "Settings"
+    add_submenu_page(
+      'upload.php',
       $title,
       $title,
       'manage_options',
@@ -64,7 +66,74 @@ class TBFNMI_Subsite_Settings {
   }
 
   public static function register_settings() {
-    register_setting('tbfnmi_photofall_group', 'tbfnmi_photofall_options');
+    register_setting('tbfnmi_photofall_group', 'tbfnmi_photofall_options', [
+        'sanitize_callback' => [__CLASS__, 'sanitize']
+    ]);
+  }
+
+  /**
+   * Sanitization Callback
+   * Ensures all saved data is safe and valid.
+   */
+  public static function sanitize( $input ) {
+      $new_input = [];
+      
+      // 1. Integers
+      $ints = ['per_page', 'wr_duration'];
+      foreach($ints as $key) {
+          if(isset($input[$key])) $new_input[$key] = absint($input[$key]);
+      }
+
+      // 2. Strings / Text Fields
+      $strings = ['caption_mode', 'default_sort', 'network_scope_mode', 'wr_visual_mode', 'wr_specific_ids'];
+      foreach($strings as $key) {
+          if(isset($input[$key])) $new_input[$key] = sanitize_text_field($input[$key]);
+      }
+
+      // 3. Booleans (Checkboxes)
+      $bools = [
+          'show_search', 'show_filter_type', 'show_filter_year', 'show_filter_site', 
+          'show_sort', 'show_random', 'seo_interlink_origin', 'enable_xml_sitemaps', 
+          'enable_frontend_upload', 'enable_world_ruler', 'wr_open_default', 
+          'wr_auto_start', 'wr_network_wide'
+      ];
+      foreach($bools as $key) {
+          $new_input[$key] = isset($input[$key]) ? 1 : 0;
+      }
+
+      // 4. Arrays (Scope Sites)
+      if ( isset($input['network_scope_sites']) && is_array($input['network_scope_sites']) ) {
+          $new_input['network_scope_sites'] = array_map('intval', $input['network_scope_sites']);
+      } else {
+          $new_input['network_scope_sites'] = [];
+      }
+
+      // 5. Arrays (Roles)
+      if ( isset($input['upload_roles']) && is_array($input['upload_roles']) ) {
+          $new_input['upload_roles'] = array_map('sanitize_text_field', $input['upload_roles']);
+      } else {
+          $new_input['upload_roles'] = ['administrator'];
+      }
+
+      // 6. JSON (Playlists) - Validate and Clean
+      if ( isset($input['wr_playlists_json']) ) {
+          // Decode to check validity
+          $json_raw = stripslashes($input['wr_playlists_json']);
+          $json = json_decode($json_raw, true);
+          
+          if ( is_array($json) ) {
+              // Walk through the array and sanitize all strings
+              array_walk_recursive($json, function(&$item, $key){
+                  if(is_string($item)) $item = sanitize_text_field($item);
+              });
+              $new_input['wr_playlists_json'] = json_encode($json);
+          } else {
+              // Fallback to default structure if invalid
+              $new_input['wr_playlists_json'] = '[{"name":"Princess Keilah Default","tracks":[]}]';
+          }
+      }
+
+      return $new_input;
   }
 
   public static function render() {
@@ -76,7 +145,7 @@ class TBFNMI_Subsite_Settings {
     ?>
     <div class="wrap">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h1 class="wp-heading-inline"><?php echo is_multisite() ? 'Photofall & Network Settings' : 'Media Index Settings'; ?></h1>
+          <h1 class="wp-heading-inline"><?php esc_html_e('Big King Media Settings', 'tbf-network-media-index'); ?></h1>
           <a href="<?php echo esc_url($gallery_url); ?>" target="_blank" class="page-title-action" style="border:1px solid #2271b1; color:#2271b1; font-weight:bold;">View Live Gallery &rarr;</a>
       </div>
       <hr class="wp-header-end">
@@ -85,13 +154,13 @@ class TBFNMI_Subsite_Settings {
         <?php settings_fields('tbfnmi_photofall_group'); ?>
         
         <h2 class="nav-tab-wrapper">
-            <a href="#tab-general" class="nav-tab nav-tab-active" onclick="switchTab(event, 'general')">General</a>
-            <a href="#tab-seo" class="nav-tab" onclick="switchTab(event, 'seo')">SEO</a>
+            <a href="#tab-general" class="nav-tab nav-tab-active" onclick="switchTab(event, 'general')">Photofall</a>
+            <a href="#tab-seo" class="nav-tab" onclick="switchTab(event, 'seo')">Kaleeyon SEO</a>
             <?php if ( is_multisite() ): ?>
             <a href="#tab-scope" class="nav-tab" onclick="switchTab(event, 'scope')">Scope</a>
             <?php endif; ?>
-            <a href="#tab-uploader" class="nav-tab" onclick="switchTab(event, 'uploader')">Uploader</a>
-            <a href="#tab-worldruler" class="nav-tab" onclick="switchTab(event, 'worldruler')">Queen Keilah (Audio)</a>
+            <a href="#tab-uploader" class="nav-tab" onclick="switchTab(event, 'uploader')">Frontend Uploader</a>
+            <a href="#tab-worldruler" class="nav-tab" onclick="switchTab(event, 'worldruler')">Princess Keilah Studio</a>
         </h2>
 
         <div id="tab-general" class="tbf-tab-content" style="padding-top:20px;">
@@ -210,7 +279,7 @@ class TBFNMI_Subsite_Settings {
 
         <div id="tab-worldruler" class="tbf-tab-content" style="display:none; padding-top:20px;">
             <p class="description" style="margin-bottom:20px; font-size:14px; border-left:4px solid #2271b1; padding-left:10px;">
-                <strong>Queen Keilah Engine:</strong> Drag and drop audio and images to reorder them.
+                <strong>Princess Keilah Studio Engine:</strong> Drag and drop audio and images to reorder them.
             </p>
             <table class="form-table">
                 <tr valign="top">

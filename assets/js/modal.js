@@ -1,7 +1,7 @@
 /* global jQuery, _, Backbone, wp, tbfnmi_modal_data */
 /* =========================================================
    File: assets/js/modal.js
-   Version: 6.7.5 (Complete Network Media Modal Engine)
+   Version: 6.9.24 (Audio/Video Thumbnail Badges)
    ========================================================= */
 (function ($) {
     if (!window.wp || !wp.media || !window.tbfnmi_modal_data) return;
@@ -162,14 +162,19 @@
     const NetworkMediaView = wp.media.View.extend({
         className: 'tbfnmi-view',
         events: {
-            'click .tbfnmi-refresh': 'resetAndRefresh',
-            'click .tbfnmi-shuffle': 'shuffle',
-            'click .tbfnmi-toggle-captions': 'toggleCaptions',
+            'input .tbfnmi-search-input': 'onSearchInput',
+            
+            'click .tbfnmi-tool-btn.type-filter': 'toggleTypeFilter',
+            'click .tbfnmi-tool-btn.refresh': 'resetAndRefresh',
+            'click .tbfnmi-tool-btn.shuffle': 'shuffle',
+            'click .tbfnmi-tool-btn.captions': 'toggleCaptions',
+            'click .tbfnmi-tool-btn.sidebar': 'toggleSidebar',
+            
             'click .tbfnmi-load-more': 'loadMore',
-            'input .tbfnmi-search': 'onSearchInput',
-            'change .tbfnmi-mime': 'refresh',
             'change .tbfnmi-origin': 'refresh',
-            'click .tbfnmi-item': 'onItemClick'
+            'click .tbfnmi-item': 'onItemClick',
+            
+            'click .tbfnmi-set-audio-thumb': 'onSetAudioThumb'
         },
         initialize(opts) {
             this.controller = opts.controller;
@@ -177,29 +182,57 @@
             this.loading = false;
             this.done = false;
             this.query = '';
-            this.mime = '';
+            this.activeTypes = []; 
             this.origin_blog_id = '';
             this.orderby = 'date';
+            this.sidebarEnabled = true;
+            
             try {
                 const lib = this.controller.frame.state().get('library');
                 if (lib && lib.get('type')) {
                     const types = lib.get('type');
-                    this.mime = Array.isArray(types) ? types[0] : types;
+                    const initialType = Array.isArray(types) ? types[0] : types;
+                    if(initialType) this.activeTypes = [initialType];
                 }
             } catch (e) { }
         },
         render() {
             this.$el.html(
                 '<div style="display: flex; flex-direction: column; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #fff;">' +
-                    '<div class="tbfnmi-toolbar">' +
-                        '<input type="search" class="tbfnmi-search regular-text" placeholder="Search network..." />' +
-                        '<select class="tbfnmi-mime"><option value="">All Types</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option><option value="application">Documents</option></select>' +
-                        '<select class="tbfnmi-origin"><option value="">All origin sites</option></select>' +
-                        '<button type="button" class="button tbfnmi-refresh">Refresh</button>' +
-                        '<button type="button" class="button tbfnmi-shuffle" style="margin-left:4px;">Shuffle</button>' +
-                        '<button type="button" class="button tbfnmi-toggle-captions" style="margin-left:4px;" title="Toggle Captions"><span class="dashicons dashicons-text" style="line-height:28px;"></span></button>' +
-                        '<span class="tbfnmi-status" style="color: #d63638; font-weight: 600; margin-left: 10px; display: none;"></span>' +
+                    '<div class="tbfnmi-compact-toolbar">' +
+                        
+                        '<div class="tbfnmi-site-select-wrap">' +
+                             '<select class="tbfnmi-origin"><option value="">All Sites</option></select>' +
+                        '</div>' +
+
+                        '<div class="tbfnmi-tools-scroll">' +
+                        
+                            '<div class="tbfnmi-search-wrap">' +
+                                '<input type="search" class="tbfnmi-search-input" placeholder="Search" />' +
+                            '</div>' +
+                            
+                            '<div class="tbfnmi-divider"></div>' +
+
+                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="image" title="Images"><span class="dashicons dashicons-format-image"></span></button>' +
+                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="video" title="Videos"><span class="dashicons dashicons-video-alt3"></span></button>' +
+                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="audio" title="Audio"><span class="dashicons dashicons-format-audio"></span></button>' +
+                            '<button type="button" class="tbfnmi-tool-btn type-filter" data-type="application" title="Documents"><span class="dashicons dashicons-media-document"></span></button>' +
+                            
+                            '<div class="tbfnmi-divider"></div>' +
+
+                            '<button type="button" class="tbfnmi-tool-btn refresh" title="Refresh"><span class="dashicons dashicons-update"></span></button>' +
+                            '<button type="button" class="tbfnmi-tool-btn shuffle" title="Shuffle"><span class="dashicons dashicons-randomize"></span></button>' +
+                            
+                            '<div class="tbfnmi-divider"></div>' +
+
+                            '<button type="button" class="tbfnmi-tool-btn captions" title="Toggle Captions"><span class="dashicons dashicons-text"></span></button>' +
+                            '<button type="button" class="tbfnmi-tool-btn sidebar active" title="Toggle Details"><span class="dashicons dashicons-columns"></span></button>' +
+                        
+                        '</div>' + 
+
+                        '<span class="tbfnmi-status"></span>' +
                     '</div>' +
+                    
                     '<div style="flex: 1; display: flex; overflow: hidden; position: relative;">' +
                         '<div style="flex: 1; overflow-y: auto; background: #f0f0f1;">' +
                             '<ul class="attachments tbfnmi-grid"></ul>' +
@@ -215,13 +248,92 @@
             this.$status = this.$('.tbfnmi-status');
             this.$origin = this.$('.tbfnmi-origin');
             this.$sidebar = this.$('.tbfnmi-sidebar');
+            this.$searchInput = this.$('.tbfnmi-search-input');
 
             this.$sidebar.on('mousedown mouseup click play pause', '.tbfnmi-attachment-details audio, .tbfnmi-attachment-details video', function(e) { e.stopPropagation(); });
-            if (['image', 'video', 'audio', 'application'].indexOf(this.mime) !== -1) this.$('.tbfnmi-mime').val(this.mime);
+            
+            this.activeTypes.forEach(t => {
+                this.$(`.tbfnmi-tool-btn.type-filter[data-type="${t}"]`).addClass('active');
+            });
 
             this.populateSites();
             this.refresh();
             return this;
+        },
+        
+        // Custom Audio Thumbnail Handler
+        onSetAudioThumb(e) {
+            e.preventDefault();
+            const btn = $(e.currentTarget);
+            const audioId = btn.data('id');
+            const audioBlogId = btn.data('blog');
+            const key = audioBlogId + ':' + audioId;
+            
+            const frame = wp.media({
+                title: 'Select Custom Audio Thumbnail',
+                button: { text: 'Set Thumbnail' },
+                multiple: false,
+                library: { type: 'image' }
+            });
+
+            frame.on('select', () => {
+                const attachment = frame.state().get('selection').first().toJSON();
+                const thumbUrl = attachment.url;
+                
+                const originalText = btn.text();
+                btn.text('Saving...').prop('disabled', true);
+                
+                $.post(tbfnmi_modal_data.ajax, {
+                    action: 'tbfnmi_set_audio_thumb',
+                    nonce: tbfnmi_modal_data.nonce,
+                    audio_id: audioId,
+                    audio_blog_id: audioBlogId,
+                    thumb_url: thumbUrl
+                }).done((res) => {
+                    if (res.success) {
+                        btn.text('Thumbnail Set!');
+                        
+                        $('#tbfnmi-audio-thumb-preview').attr('src', thumbUrl);
+                        
+                        if (this.itemsMap && this.itemsMap[key]) {
+                            this.itemsMap[key].set('thumb', thumbUrl);
+                        }
+                        
+                        const gridItemImg = this.$(`.tbfnmi-item[data-tbfnmi-key="${key}"] .thumbnail`);
+                        gridItemImg.html('<div class="centered tbf-portrait-fix"><img src="' + _.escape(thumbUrl) + '" alt="" style="object-fit:cover; width:100%; height:100%;"></div>');
+                        
+                        setTimeout(() => { btn.text(originalText).prop('disabled', false); }, 2000);
+                    } else {
+                        btn.text('Error Saving').prop('disabled', false);
+                        setTimeout(() => { btn.text(originalText).prop('disabled', false); }, 2000);
+                    }
+                }).fail(() => {
+                    btn.text('Network Error').prop('disabled', false);
+                    setTimeout(() => { btn.text(originalText).prop('disabled', false); }, 2000);
+                });
+            });
+            
+            frame.open();
+        },
+
+        onSearchInput() {
+            this.query = this.$searchInput.val().trim();
+            clearTimeout(this._searchTimer);
+            this._searchTimer = setTimeout(() => this.refresh(), 300);
+        },
+        toggleTypeFilter(e) {
+            e.preventDefault();
+            const btn = $(e.currentTarget);
+            const type = btn.data('type');
+            
+            if (btn.hasClass('active')) {
+                btn.removeClass('active');
+                this.activeTypes = this.activeTypes.filter(t => t !== type);
+            } else {
+                btn.addClass('active');
+                this.activeTypes.push(type);
+            }
+            this.refresh();
         },
         onItemClick(e) {
             e.preventDefault();
@@ -235,14 +347,36 @@
             this.$el.toggleClass('hide-captions');
             $(e.currentTarget).toggleClass('active');
         },
+        toggleSidebar(e) {
+            e.preventDefault();
+            this.sidebarEnabled = !this.sidebarEnabled;
+            $(e.currentTarget).toggleClass('active', this.sidebarEnabled);
+            
+            if (this.sidebarEnabled) {
+                if (this.$sidebar.children().length > 0) this.$sidebar.show();
+            } else {
+                this.$sidebar.hide();
+            }
+        },
         renderSidebar(model) {
             const m = model.toJSON();
             let title = m.title || m.url.split('/').pop() || 'Media File';
             if (!m.title && m.url) title = title.replace(/\.[^/.]+$/, "");
 
             let mediaHtml = '';
+            const includesUrl = (wp.media.view.settings && wp.media.view.settings.includesUrl) ? wp.media.view.settings.includesUrl : '/wp-includes/';
+
             if (m.media_type === 'audio') {
-                mediaHtml = '<audio controls src="' + _.escape(m.url) + '" style="width:100%; outline:none; margin-bottom:15px; display:block;"></audio>';
+                let previewImgSrc = m.thumb || m.url;
+                if (previewImgSrc.match(/\.(mp3|wav|ogg|flac|m4a|aac)$/i) || previewImgSrc.indexOf('images/media/audio.png') !== -1) {
+                    previewImgSrc = includesUrl + 'images/media/audio.png';
+                }
+
+                mediaHtml = '<div class="tbfnmi-audio-preview-wrap" style="position:relative; margin-bottom:15px;">' +
+                                '<img src="' + _.escape(previewImgSrc) + '" style="width:100%; height:auto; border-radius:4px; display:block; margin-bottom:10px; background:#f0f0f1; object-fit:contain; max-height:200px;" id="tbfnmi-audio-thumb-preview" />' +
+                                '<audio controls src="' + _.escape(m.url) + '" style="width:100%; outline:none; display:block;"></audio>' +
+                                '<button type="button" class="button button-secondary tbfnmi-set-audio-thumb" data-id="' + _.escape(m.attachment_id) + '" data-blog="' + _.escape(m.blog_id) + '" style="width:100%; margin-top:10px; font-weight:bold;">Select Thumbnail</button>' +
+                            '</div>';
             } else if (m.media_type === 'video') {
                 mediaHtml = '<video controls src="' + _.escape(m.url) + '" style="width:100%; background:#000; outline:none; margin-bottom:15px; display:block;"></video>';
             } else {
@@ -258,7 +392,8 @@
                     '<div class="url" style="color:#646970; font-size:12px; word-break:break-all; margin-bottom:15px;"><strong>URL:</strong> <a href="' + _.escape(m.url) + '" target="_blank" style="color:#2271b1; text-decoration:underline;">View Original</a></div>' +
                 '</div>'
             );
-            this.$sidebar.show();
+            
+            if (this.sidebarEnabled) this.$sidebar.show();
         },
         hideSidebar() { this.$sidebar.hide().empty(); },
         setStatus(msg) {
@@ -272,11 +407,6 @@
                     if (s.blog_id || s.id) this.$origin.append('<option value="' + (s.blog_id || s.id) + '">' + _.escape(s.name || s.blogname || 'Site ' + (s.blog_id || s.id)) + '</option>');
                 });
             });
-        },
-        onSearchInput() {
-            this.query = (this.$('.tbfnmi-search').val() || '').trim();
-            clearTimeout(this._searchTimer);
-            this._searchTimer = setTimeout(() => this.refresh(), 250);
         },
         resetAndRefresh() {
             this.orderby = 'date';
@@ -299,11 +429,17 @@
             this.loading = true;
             this.setStatus('Loading...');
 
+            let mimeFilter = '';
+            if (this.activeTypes.length > 0) {
+                if(this.activeTypes.length === 1) mimeFilter = this.activeTypes[0];
+                else mimeFilter = ''; 
+            }
+
             Ajax.list({
                 page: this.page,
                 per_page: (tbfnmi_modal_data && tbfnmi_modal_data.perPage) ? tbfnmi_modal_data.perPage : 60,
                 s: this.query,
-                mime: this.$('.tbfnmi-mime').val() || '',
+                mime: mimeFilter,
                 origin_blog_id: this.$('.tbfnmi-origin').val() || '',
                 orderby: this.orderby
             }).done((res) => {
@@ -327,18 +463,34 @@
                     if (!it.title && it.url) title = it.url.split('/').pop().replace(/\.[^/.]+$/, "");
 
                     let thumbnailHtml = '';
+                    let badgeHtml = ''; // Smart icon overlay system
                     
-                    if (it.media_type === 'audio' || thumb.match(/\.(mp3|wav|ogg|flac|m4a)$/i)) {
-                        thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-audio-icon-wrap"><img src="' + includesUrl + 'images/media/audio.png" class="icon" alt=""></div></div>';
-                    } else if (it.media_type === 'video' && (!it.thumb || it.thumb === it.url || thumb.match(/\.(mp4|webm|mov)$/i))) {
-                        thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-video-icon-wrap"><img src="' + includesUrl + 'images/media/video.png" class="icon" alt=""></div></div>';
+                    if (it.media_type === 'audio') {
+                        // Blue music badge for audio
+                        badgeHtml = '<div style="position:absolute; top:6px; right:6px; background:#2271b1; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:5; box-shadow:0 2px 4px rgba(0,0,0,0.3); pointer-events:none;"><span class="dashicons dashicons-format-audio" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></div>';
+                        
+                        if (thumb.match(/\.(mp3|wav|ogg|flac|m4a|aac)$/i) || thumb.indexOf('images/media/audio.png') !== -1) {
+                            thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-audio-icon-wrap"><img src="' + includesUrl + 'images/media/audio.png" class="icon" alt=""></div></div>';
+                        } else {
+                            thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-portrait-fix"><img src="' + _.escape(thumb) + '" alt="" style="object-fit:cover; width:100%; height:100%;"></div></div>';
+                        }
+                    } else if (it.media_type === 'video') {
+                        // Dark video badge for video
+                        badgeHtml = '<div style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.7); color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:5; box-shadow:0 2px 4px rgba(0,0,0,0.3); pointer-events:none;"><span class="dashicons dashicons-video-alt3" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></div>';
+                        
+                        if (!it.thumb || it.thumb === it.url || thumb.match(/\.(mp4|webm|mov)$/i)) {
+                            thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-video-icon-wrap"><img src="' + includesUrl + 'images/media/video.png" class="icon" alt=""></div></div>';
+                        } else {
+                            thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-portrait-fix"><img src="' + _.escape(thumb) + '" alt=""></div></div>';
+                        }
                     } else {
                         thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-portrait-fix"><img src="' + _.escape(thumb) + '" alt=""></div></div>';
                     }
 
                     const li = $('<li class="attachment tbfnmi-item" data-tbfnmi-key="' + key + '"></li>');
                     li.html(
-                        '<div class="attachment-preview js--select-attachment type-' + _.escape(it.media_type) + '">' +
+                        '<div class="attachment-preview js--select-attachment type-' + _.escape(it.media_type) + '" style="position:relative;">' +
+                            badgeHtml +
                             thumbnailHtml +
                             '<div class="filename"><div>' + _.escape(title) + '</div></div>' +
                         '</div>' +
@@ -363,7 +515,7 @@
     wp.media.view.MediaFrame.Select.prototype.browseRouter = function (routerView) {
         oldBrowseRouter.apply(this, arguments);
         routerView.set('tbf-network-media', {
-            text: 'Network Media', 
+            text: 'Big King Media', 
             priority: 80 
         });
     };

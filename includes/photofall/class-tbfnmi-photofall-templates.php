@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfnmi-photofall-templates.php
- * Version: 6.7.5 (Fatal Error Fix & Full Logic Restoration)
+ * Version: 6.9.19 (Fix: Whitelisted Hover Attributes & Restored Admin Controls)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -55,6 +55,8 @@ class TBFNMI_Photofall_Templates {
         }
         $data['max_pages'] = 1; 
     }
+
+    $caption_mode = !empty($settings['caption_mode']) ? $settings['caption_mode'] : 'hover';
 
     get_header(); 
     ?>
@@ -145,7 +147,7 @@ class TBFNMI_Photofall_Templates {
         </div>
       </form>
 
-      <div id="tbf-grid-container" class="tbf-photofall-grid caption-mode-<?php echo esc_attr($settings['caption_mode']); ?>">
+      <div id="tbf-grid-container" class="tbf-photofall-grid caption-mode-<?php echo esc_attr($caption_mode); ?>">
         <?php if (empty($media)): ?>
             <div class="tbf-no-results">
                 <h2>No media found</h2>
@@ -176,7 +178,8 @@ class TBFNMI_Photofall_Templates {
   }
 
   public static function render_single($item, $related, $settings) {
-      self::enqueue_assets(1, ['sort' => $settings['default_sort']]);
+      self::enqueue_assets(1, ['sort' => $settings['default_sort'] ?? 'date_desc']);
+      $caption_mode = !empty($settings['caption_mode']) ? $settings['caption_mode'] : 'hover';
       get_header();
       
       $url_full = self::resolve_url($item); 
@@ -210,7 +213,13 @@ class TBFNMI_Photofall_Templates {
                   <video src="<?php echo esc_url($url_full); ?>" controls class="tbf-single-media" style="max-width: 100%; max-height: 70vh; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);"></video>
               <?php elseif ($type === 'audio'): ?>
                   <div style="background:#fff; padding:40px; border-radius:12px; display:inline-block; max-width:100%; border:1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                      <img src="<?php echo esc_url(includes_url('images/media/audio.png')); ?>" style="width:100px; height:auto; margin-bottom:20px;" alt="Audio File">
+                      <?php 
+                      $single_thumb = isset($item->tbf_url_thumb) && !empty($item->tbf_url_thumb) ? $item->tbf_url_thumb : '';
+                      if (empty($single_thumb) || preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $single_thumb)) {
+                          $single_thumb = includes_url('images/media/audio.png');
+                      }
+                      ?>
+                      <img src="<?php echo esc_url($single_thumb); ?>" style="width:150px; height:auto; border-radius:8px; margin-bottom:20px; object-fit:cover;" alt="Audio File">
                       <audio src="<?php echo esc_url($url_full); ?>" controls style="width:100%; min-width:300px;"></audio>
                   </div>
               <?php else: ?>
@@ -242,7 +251,7 @@ class TBFNMI_Photofall_Templates {
           
           <?php if (!empty($related)): ?>
               <h3 class="tbf-related-title">Related Media</h3>
-              <div class="tbf-photofall-grid caption-mode-<?php echo esc_attr($settings['caption_mode']); ?>">
+              <div class="tbf-photofall-grid caption-mode-<?php echo esc_attr($caption_mode); ?>">
                   <?php foreach ($related as $rel_item): echo wp_kses(self::get_item_html($rel_item), self::get_allowed_html()); endforeach; ?>
               </div>
           <?php endif; ?>
@@ -251,6 +260,7 @@ class TBFNMI_Photofall_Templates {
       <?php get_footer();
   }
 
+  // FIX: Whitelisted `onmouseover` and `onmouseout` so the admin controls don't get stripped by AJAX
   public static function get_allowed_html() {
       return [
           'div'    => ['class' => true, 'style' => true, 'onmouseover' => true, 'onmouseout' => true],
@@ -281,9 +291,9 @@ class TBFNMI_Photofall_Templates {
 
       $url_full = self::resolve_url($post);
 
-      if ( isset($post->tbf_url_thumb) ) {
+      if ( isset($post->tbf_url_thumb) && !empty($post->tbf_url_thumb) ) {
           $src = $post->tbf_url_thumb; 
-          if (!$url_full) $url_full = $post->tbf_url_full; 
+          if (!$url_full) $url_full = $post->tbf_url_full ?? ''; 
       } else {
           if (!$url_full) $url_full = wp_get_attachment_url($att_id); 
           $thumb = wp_get_attachment_image_src($att_id, 'medium_large');
@@ -291,8 +301,16 @@ class TBFNMI_Photofall_Templates {
       }
       
       $type = $post->type ?? $post->media_type ?? 'image';
-      $permalink = home_url('/photo/' . $type . '/' . ($post->blog_id ?? get_current_blog_id()) . '-' . $att_id . '/');
-      $caption = esc_attr($post->post_excerpt ?? $post->caption ?? $post->post_title ?? $post->title);
+      $caption = esc_attr($post->post_excerpt ?? $post->caption ?? $post->post_title ?? $post->title ?? '');
+
+      if ( $type === 'audio' && (empty($src) || preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $src)) ) {
+          $src = includes_url('images/media/audio.png');
+      }
+
+      $master_id = (int) get_site_option('tbfnmi_master_controller_id', get_main_site_id());
+      $master_base = get_site_url($master_id, '/photo/');
+      $item_blog_id = (int)($post->blog_id ?? get_current_blog_id());
+      $permalink = $master_base . $type . '/' . $item_blog_id . '-' . $att_id . '/';
 
       global $wpdb;
       $usage_table = $wpdb->base_prefix . 'tbfnmi_usage_map';
@@ -310,6 +328,8 @@ class TBFNMI_Photofall_Templates {
       
       $admin_nonce = wp_create_nonce('tbfnmi_admin_action');
       ob_start();
+      
+      // FIX: Restored the inline onmouseover/onmouseout logic so admin controls show correctly
       ?>
       <div class="tbf-grid-item type-<?php echo esc_attr($type); ?>" style="position:relative;" onmouseover="if(this.querySelector('.tbf-pf-admin-controls')) this.querySelector('.tbf-pf-admin-controls').style.display='flex'" onmouseout="if(this.querySelector('.tbf-pf-admin-controls')) this.querySelector('.tbf-pf-admin-controls').style.display='none'">
         
@@ -324,20 +344,21 @@ class TBFNMI_Photofall_Templates {
             <?php if ($type === 'video'): ?><div class="tbf-video-badge">▶</div><?php endif; ?>
             <?php if ($type === 'audio'): ?><div class="tbf-video-badge" style="background:#2271b1;">🎵</div><?php endif; ?>
             
-            <img src="<?php echo esc_url($src); ?>" 
-                 style="width:100%; height:auto;" 
-                 loading="lazy" decoding="async" 
-                 class="tbf-photofall-img" 
-                 data-id="<?php echo esc_attr($att_id); ?>" 
-                 data-full="<?php echo esc_url($url_full); ?>" 
-                 data-type="<?php echo esc_attr($type); ?>" 
-                 data-permalink="<?php echo esc_url($permalink); ?>" 
-                 data-caption="<?php echo esc_attr($caption); ?>" 
-                 data-source-title="<?php echo esc_attr($source_title); ?>" 
-                 data-source-url="<?php echo esc_url($source_url); ?>" 
-                 onclick="tbfnmi_photofall.open(this)">
+            <a class="tbf-pf-card__link" href="<?php echo esc_url($permalink); ?>" onclick="event.preventDefault(); tbfnmi_photofall.open(this.querySelector('img'));">
+                <img src="<?php echo esc_url($src); ?>" 
+                     style="width:100%; height:auto; object-fit:cover;" 
+                     loading="lazy" decoding="async" 
+                     class="tbf-photofall-img" 
+                     data-id="<?php echo esc_attr($att_id); ?>" 
+                     data-full="<?php echo esc_url($url_full); ?>" 
+                     data-type="<?php echo esc_attr($type); ?>" 
+                     data-permalink="<?php echo esc_url($permalink); ?>" 
+                     data-caption="<?php echo esc_attr($caption); ?>" 
+                     data-source-title="<?php echo esc_attr($source_title); ?>" 
+                     data-source-url="<?php echo esc_url($source_url); ?>">
+            </a>
             
-            <div class="tbf-caption"><?php echo esc_html($post->post_excerpt ?? $post->caption ?? $post->post_title ?? $post->title); ?></div>
+            <div class="tbf-caption"><?php echo esc_html($caption); ?></div>
         </div>
       </div>
       <?php return ob_get_clean();

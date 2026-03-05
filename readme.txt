@@ -1,28 +1,28 @@
-=== TBF Network Media Index – Multisite Shared Media Library ===
+=== TBF Big King Media: Multisite Shared Library +Photofall ===
 Contributors: sherikatrottbailey, kimroybailey, trottbaileyfamily
-Tags: multisite media library, share media across multisite, network media, cross-site images, multisite global media, photofall gallery, pinterest gallery
+Tags: multisite media library, share media across multisite, network media, multisite global media, pinterest gallery
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 6.6.19
+Stable tag: 6.9.24
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-The ultimate WordPress multisite media library. Browse, search, and insert media from every subsite across your network. Features the Photofall gallery.
+The ultimate WordPress multisite media library. Browse, search, and insert media from every subsite across your network. Features Photofall gallery.
 
 == Description ==
 
-**TBF Network Media Index - Multisite Shared Media Library** is the most powerful and highly optimized multisite media solution for WordPress. It allows administrators and users of a WordPress Multisite network to access, search, and insert media from every single subsite through one unified **Global Network Media** tab—without ever duplicating or copying physical files across your server.
+**TBF Big King Media: Multisite Shared Library +Photofall** is the most powerful and highly optimized multisite media solution for WordPress. It allows administrators and users of a WordPress Multisite network to access, search, and insert media from every single subsite through one unified **Global Network Media** tab—without ever duplicating or copying physical files across your server.
 
 This plugin was built out of necessity to manage over **10,000 images, videos, and audio files** documenting the road to bringing **AgriGames** to life. 
 
 ### See the Power in Action
 
-Experience the sheer scale of the Network Media Index and the Photofall Gallery in a live environment:
+Experience the sheer scale of the Big King Media and the World Ruler Sher Photofall Gallery in a live environment:
 [**View the AgriGames Journey (1Drop Photo Gallery)**](https://trottbaileyfamily.com/1drop/photo)
 
 Learn more about the plugin on our official landing page:
-[**TBF Network Media Index Official Page**](https://trottbaileyfamily.com/tbf-network-media-index)
+[**TBF Network Media Index Official Page**](https://trottbaileyfamily.com/tbf-big-king-media)
 
 ### 🚀 Powerful Core Features
 
@@ -42,9 +42,19 @@ AgriGames combines fun, fashion, unique architecture, play, and freedom of trave
 
 This plugin is the archival engine organizing the tens of thousands of media files documenting the road to making this money-free world a reality.
 
+== External Services ==
+
+This plugin may connect to the following external services to facilitate SEO features:
+
+* **Google & Bing Pinging:**
+    * **Service:** Google Search Console / Bing Webmaster Tools.
+    * **Data Sent:** The URL of your generated XML sitemap.
+    * **When:** Only when "Notify Search Engines" is clicked in the Admin Dashboard or when settings are saved (if enabled).
+    * **Terms:** [Google Terms](https://policies.google.com/terms), [Bing Terms](https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/default.aspx).
+
 == Installation ==
 
-1. Upload the `tbf-network-media-index` folder to the `/wp-content/plugins/` directory.
+1. Upload the `tbf-big-king-media` folder to the `/wp-content/plugins/` directory.
 2. Network Activate the plugin through the 'Plugins' menu in your WordPress Network Admin.
 3. Navigate to **Network Admin -> TBF Network Media**.
 4. Run the **Full Network Index** to build your initial global database.
@@ -81,6 +91,12 @@ The plugin features a robust integration with BuddyPress and the Vikinger theme.
 Absolutely. The background indexer and the frontend "Load More" AJAX features are built with chunked offset processing. They safely handle tens of thousands of files without crashing your server or triggering PHP memory limits.
 
 == Changelog ==
+
+= 6.9.6.0 =
+* **BRANDING:** Rebranded to **Big King Media**.
+* **COMPLIANCE:** Moved Network Menu to "Settings" to comply with WP Admin guidelines.
+* **SECURITY:** Implemented strict late escaping on all frontend templates.
+* **FIX:** Switched to `wp_add_inline_script` for data passing.
 
 = 6.6.18 =
 * **FEATURE:** **Backend Caption Toggle.** Added a toggle button to the WordPress Media Library modal to hide filenames, fixing grid visibility when filenames are too long.

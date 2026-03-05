@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       TBF Big King Media: Multisite Shared Library + Photofall
+ * Plugin Name:       TBF Big King Media: Multisite Shared Library +Photofall
  * Plugin URI:        https://trottbaileyfamily.com/tbf-network-media-index
- * Description:       The ultimate media library enhancement. Includes "Photofall", "Princess Keilah Studio", and frontend tools.
- * Version:           6.9.5.11
+ * Description:       The ultimate media library enhancement. Includes "Photofall", "Kaleeyon SEO", and "Princess Keilah Studio".
+ * Version:           6.9.24
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Sherika Trott Bailey, Kimroy Bailey, Trott Bailey Family
@@ -15,7 +15,7 @@
 
 if ( ! defined('ABSPATH') ) exit;
 
-define('TBFNMI_VER', '6.9.5.11');
+define('TBFNMI_VER', '6.9.24');
 define('TBFNMI_DIR', plugin_dir_path(__FILE__));
 define('TBFNMI_URL', plugin_dir_url(__FILE__));
 

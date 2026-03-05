@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfnmi-photofall-router.php
- * Version: 6.7.9 (Fatal Error Fix: Load Templates)
+ * Version: 6.9.20 (Strict Master Redirects & Attachment Interceptor)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -11,12 +11,12 @@ class TBFNMI_Photofall_Router {
   public static function init() {
     add_action('init', [__CLASS__, 'add_rewrite_rule']);
     add_filter('query_vars', [__CLASS__, 'add_query_vars']);
-    add_action('template_redirect', [__CLASS__, 'template_redirect']);
+    add_action('template_redirect', [__CLASS__, 'template_redirect'], 1); // High priority intercept
   }
 
   public static function add_rewrite_rule() {
     add_rewrite_rule('^photo/?$', 'index.php?tbfnmi_photofall=1', 'top');
-    add_rewrite_rule('^photo/(image|video)/([0-9]+)-([0-9]+)/?$', 'index.php?tbfnmi_single=1&tbf_type=$matches[1]&tbf_id=$matches[3]&tbf_blog=$matches[2]', 'top');
+    add_rewrite_rule('^photo/(image|video|audio)/([0-9]+)-([0-9]+)/?$', 'index.php?tbfnmi_single=1&tbf_type=$matches[1]&tbf_blog=$matches[2]&tbf_id=$matches[3]', 'top');
   }
 
   public static function add_query_vars($vars) {
@@ -29,20 +29,56 @@ class TBFNMI_Photofall_Router {
   }
 
   public static function template_redirect() {
+    $master_id = (int) get_site_option('tbfnmi_master_controller_id', get_main_site_id());
+    $current_id = get_current_blog_id();
+    $master_base_url = get_site_url($master_id, '/photo/');
+
+    // ========================================================================
+    // 1. GLOBAL INTERCEPTOR: Kill default WP Attachment Pages
+    // ========================================================================
+    // If someone visits /?attachment_id=123 or /media-slug/, redirect to Master Photofall
+    if ( is_attachment() ) {
+        $att_id = get_queried_object_id();
+        $mime = get_post_mime_type($att_id);
+        
+        $type = 'image';
+        if (strpos($mime, 'video') !== false) $type = 'video';
+        if (strpos($mime, 'audio') !== false) $type = 'audio';
+
+        $redirect_url = $master_base_url . $type . '/' . $current_id . '-' . $att_id . '/';
+        
+        wp_redirect($redirect_url, 301);
+        exit;
+    }
+
     $is_archive = get_query_var('tbfnmi_photofall');
     $is_single  = get_query_var('tbfnmi_single');
 
     if ( ! $is_archive && ! $is_single ) return;
 
-    // FIX: Ensure Templates Class is Loaded
+    // ========================================================================
+    // 2. SUBSITE INTERCEPTOR: Kill Subsite /photo/ pages
+    // ========================================================================
+    // If we are on a custom /photo/ route, but NOT on the Master site, redirect to Master.
+    if ( $current_id !== $master_id ) {
+        // Grab the exact URI they requested (e.g. /photo/image/2-4054/) and apply it to the master domain
+        $requested_path = $_SERVER['REQUEST_URI'];
+        $redirect_url = rtrim(get_site_url($master_id), '/') . $requested_path;
+        
+        wp_redirect($redirect_url, 301);
+        exit;
+    }
+
+    // ========================================================================
+    // 3. MASTER SITE RENDER LOGIC
+    // ========================================================================
     if ( ! class_exists('TBFNMI_Photofall_Templates') ) {
         require_once plugin_dir_path(__FILE__) . 'class-tbfnmi-photofall-templates.php';
     }
 
-    $settings = TBFNMI_Subsite_Settings::get_options();
+    $settings = class_exists('TBFNMI_Subsite_Settings') ? TBFNMI_Subsite_Settings::get_options() : get_option('tbfnmi_photofall_options', []);
 
     if ( $is_single ) {
-        // Single Logic
         global $wpdb;
         $table = $wpdb->base_prefix . 'tbfnmi_index';
         $att_id = (int)get_query_var('tbf_id');
@@ -58,6 +94,7 @@ class TBFNMI_Photofall_Router {
         $post->post_title = $post->title;
         $post->post_excerpt = $post->caption;
         $post->tbf_url_full = $post->url_full;
+        $post->tbf_url_thumb = $post->url_thumb ?: $post->poster_url;
         $post->type = $post->media_type;
 
         TBFNMI_Photofall_Templates::render_single($post, [], $settings);
@@ -65,7 +102,6 @@ class TBFNMI_Photofall_Router {
     }
 
     if ( $is_archive ) {
-        // Archive Logic
         global $wpdb;
         $table = $wpdb->base_prefix . 'tbfnmi_index';
         
@@ -80,7 +116,7 @@ class TBFNMI_Photofall_Router {
         $filter_source = sanitize_text_field($_GET['tbf_source'] ?? 'all');
         $filter_year = (int)($_GET['tbf_year'] ?? 0);
         $filter_site = (int)($_GET['tbf_site'] ?? 0);
-        $sort = sanitize_text_field($_GET['tbf_sort'] ?? $settings['default_sort']);
+        $sort = sanitize_text_field($_GET['tbf_sort'] ?? ($settings['default_sort'] ?? 'date_desc'));
 
         $where = "1=1";
         $params = [];
@@ -98,6 +134,7 @@ class TBFNMI_Photofall_Router {
         if ( $filter_type !== 'all' ) {
             if ( $filter_type === 'image' ) { $where .= " AND media_type = 'image'"; }
             elseif ( $filter_type === 'video' ) { $where .= " AND media_type = 'video'"; }
+            elseif ( $filter_type === 'audio' ) { $where .= " AND media_type = 'audio'"; }
         }
 
         if ( $filter_year > 0 ) {
@@ -122,12 +159,17 @@ class TBFNMI_Photofall_Router {
         if ( $sort === 'date_asc' ) $order_sql = "ORDER BY created_gmt ASC";
         if ( $sort === 'random' ) $order_sql = "ORDER BY RAND()";
 
-        $sql = "SELECT * FROM {$table} WHERE {$where} {$order_sql} LIMIT %d OFFSET %d";
+        // Distinct URL Grouping to prevent duplicates
+        $sql = "SELECT MAX(blog_id) as blog_id, MAX(attachment_id) as attachment_id, MAX(title) as title, 
+                       MAX(caption) as caption, MAX(media_type) as media_type, url_full, 
+                       MAX(url_thumb) as url_thumb, MAX(poster_url) as poster_url 
+                FROM {$table} WHERE {$where} GROUP BY url_full {$order_sql} LIMIT %d OFFSET %d";
+                
         $final_params = array_merge($params, [$per_page, $offset]);
         
         $posts = $wpdb->get_results($wpdb->prepare($sql, $final_params));
         
-        $count_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where}";
+        $count_sql = "SELECT COUNT(DISTINCT url_full) FROM {$table} WHERE {$where}";
         $total = $wpdb->get_var($wpdb->prepare($count_sql, $params));
         $max_pages = ceil($total / $per_page);
 
@@ -146,7 +188,7 @@ class TBFNMI_Photofall_Router {
                 'max_pages' => $max_pages,
                 'current_page' => $paged
             ],
-            array_merge($settings, ['allowed_types' => ['image','video']]), 
+            array_merge($settings, ['allowed_types' => ['image','video','audio']]), 
             [
                 'search' => $search,
                 'filter' => $filter_type,

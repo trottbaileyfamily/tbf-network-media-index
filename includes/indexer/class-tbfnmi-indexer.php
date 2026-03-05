@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/indexer/class-tbfnmi-indexer.php
- * Version: 6.6.25 (Single Site Compatibility)
+ * Version: 6.9.19 (Fix: Audio Mime Type Fallback & Single Indexing)
  */
 if ( ! defined('ABSPATH') ) exit;
 
@@ -23,7 +23,6 @@ class TBFNMI_Indexer {
   }
 
   public function index_single_attachment( $post_id ) {
-      // (Keep existing validation logic...)
       if ( get_post_type($post_id) !== 'attachment' ) return;
       if ( isset($_REQUEST['action']) && strpos($_REQUEST['action'], 'tbf_nmi') !== false ) return;
 
@@ -32,7 +31,11 @@ class TBFNMI_Indexer {
       $post = get_post($post_id);
       $blog_id = get_current_blog_id(); 
       $row = $this->build_row($blog_id, $post);
-      $this->upsert($row);
+      
+      // Only upsert if it's a valid media type we care about
+      if ( $row && in_array($row['media_type'], ['image', 'video', 'audio']) ) {
+          $this->upsert($row);
+      }
   }
 
   public function create_table() {
@@ -89,7 +92,7 @@ class TBFNMI_Indexer {
     $limit = max(50, min(2000, (int)($args['limit'] ?? 500)));
     $startAfter = max(0, (int)($args['start_after'] ?? 0));
     
-    $this->create_table();
+    if ( ! $this->has_table() ) $this->create_table();
 
     $scanned = 0; $indexed = 0; $lastId = $startAfter;
 
@@ -143,15 +146,8 @@ class TBFNMI_Indexer {
             continue;
         }
 
-        // Standard Indexing
         $attId = (int)$p->ID;
-        $mime = (string)get_post_mime_type($attId);
-        $isImage = (strpos($mime,'image/')===0);
-        $isVideo = (strpos($mime,'video/')===0);
-        $isAudio = (strpos($mime,'audio/')===0);
-
-        if (!$isImage && !$isVideo && !$isAudio) continue;
-
+        
         // Skip our own proxies to prevent loops
         $all_meta = get_post_meta($attId);
         $is_proxy = false;
@@ -165,7 +161,11 @@ class TBFNMI_Indexer {
         if ($is_proxy) continue;
 
         $row = $this->build_row($blogId, $p);
-        if ($this->upsert($row)) $indexed++;
+        
+        // Validate media type before indexing to keep junk out of the library
+        if ( $row && in_array($row['media_type'], ['image', 'video', 'audio']) ) {
+            if ($this->upsert($row)) $indexed++;
+        }
       }
       $done = (count($posts) < $limit);
 
@@ -177,18 +177,19 @@ class TBFNMI_Indexer {
     if ( $switched ) restore_current_blog();
     return ['scanned'=>$scanned,'indexed'=>$indexed,'last_id'=>$lastId,'done'=>$done];
   }
-
-  // (Include build_row, upsert, detect_provider methods from v6.6.14 here - unchanged)
-  // ... [Omitted for brevity, assume identical to previous version] ...
   
   private function build_row($blogId, WP_Post $p) {
-    // ... [Use the build_row logic from v6.6.14] ...
-    // Re-inserting core logic for completeness in this file context:
     $attId = (int)$p->ID;
     $mime = (string)get_post_mime_type($attId);
-    $mediaType = 'image';
-    if (strpos($mime,'video/')===0) $mediaType = 'video';
-    if (strpos($mime,'audio/')===0) $mediaType = 'audio';
+    $fullUrl = (string)wp_get_attachment_url($attId);
+    
+    // FIX: Strong Media Type Detection (Mime Type + URL Fallback)
+    $mediaType = 'image'; // Default
+    if ( strpos($mime,'video/') === 0 || preg_match('/\.(mp4|webm|mov|mkv)$/i', $fullUrl) ) {
+        $mediaType = 'video';
+    } elseif ( strpos($mime,'audio/') === 0 || preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $fullUrl) ) {
+        $mediaType = 'audio';
+    }
 
     $title = (string)get_the_title($attId);
     $alt = (string)get_post_meta($attId, '_wp_attachment_image_alt', true);
@@ -197,7 +198,7 @@ class TBFNMI_Indexer {
     $updatedGmt = get_post_modified_time('Y-m-d H:i:s', true, $attId);
     $year = (int)get_post_time('Y', true, $attId);
     $month = (int)get_post_time('m', true, $attId);
-    $fullUrl = (string)wp_get_attachment_url($attId);
+    
     $mediumUrl = ''; $thumbUrl=''; $width=0; $height=0; $posterUrl=''; $contentUrl=''; $embedUrl='';
 
     if ($mediaType === 'image') {
@@ -209,12 +210,21 @@ class TBFNMI_Indexer {
       if (is_array($thumb)){ $thumbUrl  = $thumb[0] ?: ''; }
     } else {
       $contentUrl = $fullUrl;
-      $posterId = (int)get_post_thumbnail_id($attId);
-      if ($posterId) {
-        $t = wp_get_attachment_image_src($posterId, 'large');
-        if (is_array($t) && !empty($t[0])) $posterUrl = $t[0];
-        $tt = wp_get_attachment_image_src($posterId, 'thumbnail');
-        if (is_array($tt) && !empty($tt[0])) $thumbUrl = $tt[0];
+      
+      // Check for custom audio thumbnail metadata first (saved by our AJAX tool)
+      $custom_thumb = get_post_meta($attId, '_tbfnmi_custom_thumb_url', true);
+      if ( !empty($custom_thumb) ) {
+          $posterUrl = $custom_thumb;
+          $thumbUrl = $custom_thumb;
+      } else {
+          // Fallback to standard WP poster image
+          $posterId = (int)get_post_thumbnail_id($attId);
+          if ($posterId) {
+            $t = wp_get_attachment_image_src($posterId, 'large');
+            if (is_array($t) && !empty($t[0])) $posterUrl = $t[0];
+            $tt = wp_get_attachment_image_src($posterId, 'thumbnail');
+            if (is_array($tt) && !empty($tt[0])) $thumbUrl = $tt[0];
+          }
       }
     }
     

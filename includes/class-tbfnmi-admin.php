@@ -1,7 +1,7 @@
 <?php
 /*
  * File: includes/class-tbfnmi-admin.php
- * Version: 6.6.25 (Single Site Admin Menu)
+ * Version: 6.9.14 (Moved to Media Menu)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -9,47 +9,35 @@ if ( ! defined('ABSPATH') ) exit;
 class TBFNMI_Admin {
 
   public static function init() {
-    if ( is_multisite() ) {
-        add_action('network_admin_menu', [__CLASS__, 'menu']);
-    } else {
+    // Only register this specific menu if it is a SINGLE site.
+    // On Multisite, the subsite settings handle the Media menu.
+    if ( ! is_multisite() ) {
         add_action('admin_menu', [__CLASS__, 'menu']);
     }
   }
 
   public static function menu() {
-    if ( is_multisite() ) {
-        add_submenu_page(
-          'settings.php',
-          __('TBF Network Media Index', 'tbf-network-media-index'),
-          __('Network Media Index', 'tbf-network-media-index'),
-          'manage_network_options',
-          'tbfnmi-settings',
-          [__CLASS__, 'render']
-        );
-    } else {
-        // Single Site: Add under Settings
-        add_options_page(
-            __('TBF Media Index Settings', 'tbf-network-media-index'),
-            __('Media Index Config', 'tbf-network-media-index'),
-            'manage_options',
-            'tbfnmi-settings',
-            [__CLASS__, 'render']
-        );
-    }
+    // Single Site: Add under Media (upload.php)
+    add_submenu_page(
+        'upload.php',
+        __('Big King Media Config', 'tbf-network-media-index'),
+        __('Big King Media', 'tbf-network-media-index'),
+        'manage_options',
+        'tbfnmi-settings',
+        [__CLASS__, 'render']
+    );
   }
 
   public static function render() {
-    $cap = is_multisite() ? 'manage_network_options' : 'manage_options';
-    if ( ! current_user_can($cap) ) {
+    // This render function is now only used for Single Site mode.
+    // Multisite settings are handled by TBFNMI_Subsite_Settings and TBFNMI_Network_Dashboard
+    
+    if ( ! current_user_can('manage_options') ) {
         wp_die('Forbidden');
     }
 
-    if ( is_multisite() ) {
-      $saved = get_site_option('tbfnmi_settings', []);
-    } else {
-      $saved = get_option('tbfnmi_settings', []);
-    }
-
+    $saved = get_option('tbfnmi_settings', []);
+    
     $defaults = [
       'who_can_browse' => 'uploaders',
       'insert_mode'    => 'proxy',
@@ -65,12 +53,7 @@ class TBFNMI_Admin {
       $s['per_page']  = (int)($_POST['per_page'] ?? 60);
       $s['max_sites'] = (int)($_POST['max_sites'] ?? 5000);
 
-      if ( is_multisite() ) {
-        update_site_option('tbfnmi_settings', $s);
-      } else {
-        update_option('tbfnmi_settings', $s);
-      }
-
+      update_option('tbfnmi_settings', $s);
       echo '<div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>';
     }
 
@@ -78,7 +61,7 @@ class TBFNMI_Admin {
     $insert = $s['insert_mode'] ?? 'proxy';
     
     echo '<div class="wrap">';
-    echo '<h1>' . (is_multisite() ? 'Network Media Configuration' : 'Media Index Configuration') . '</h1>';
+    echo '<h1>Big King Media Configuration</h1>';
     
     echo '<form method="post">';
     wp_nonce_field('tbfnmi_save_settings');

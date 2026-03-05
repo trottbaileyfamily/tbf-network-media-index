@@ -1,6 +1,6 @@
 /*
  * File: assets/css/photofall-public.css
- * Version: 6.6.22 (Deep Scroll Fix)
+ * Version: 6.9.15 (Unified Masonry & Beautiful Rounded Edges Fix)
  */
 
 .tbf-photofall-wrapper { max-width: 1400px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -27,20 +27,81 @@
 @media (max-width: 800px)  { .tbf-photofall-grid { column-count: 2; } }
 @media (max-width: 500px)  { .tbf-photofall-grid { column-count: 1; } }
 
-.tbf-grid-item, .tbf-pf-card { break-inside: avoid; margin-bottom: 20px; position: relative; display: block; }
+/* ==========================================================================
+   Beautiful Rounded Edge Cards (Unified Initial + AJAX)
+   ========================================================================== */
+.tbf-grid-item, .tbf-pf-card { 
+    break-inside: avoid; 
+    margin-bottom: 20px; 
+    position: relative; 
+    display: block; 
+    
+    /* Beautiful Round Edges Fix */
+    border-radius: 16px; 
+    overflow: hidden; 
+    background: #fff; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06); 
+    
+    /* Hardware acceleration to prevent Webkit border-radius bug during hover */
+    transform: translateZ(0); 
+    isolation: isolate;
+}
+
 .tbf-grid-item.hidden { display: none; }
-.tbf-media-card { position: relative; border-radius: 12px; overflow: hidden; background: #f0f0f0; line-height: 0; }
 
-.tbf-photofall-img, .tbf-pf-card__img { width: 100%; height: auto !important; display: block; cursor: zoom-in; transition: transform 0.3s ease; }
-.tbf-media-card:hover .tbf-photofall-img, .tbf-pf-card:hover .tbf-pf-card__img { transform: scale(1.02); }
+.tbf-photofall-img, .tbf-pf-card__img { 
+    width: 100%; 
+    height: auto !important; 
+    display: block; 
+    cursor: zoom-in; 
+    transition: transform 0.3s ease; 
+    border-radius: 16px; /* Fallback for older browsers */
+}
 
-.tbf-video-badge, .tbf-pf-card__badge { 
-    position: absolute; top: 10px; right: 10px; 
-    background: rgba(0,0,0,0.6); color: #fff; 
-    width: 30px !important; height: 30px !important; 
-    border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-    font-size: 14px !important; line-height: 1 !important;
-    z-index: 2; pointer-events: none; 
+/* If the card has a title underneath, make the bottom corners of the image square */
+.tbf-pf-card__link .tbf-pf-card__img {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Hover Zoom Effect */
+.tbf-grid-item:hover .tbf-photofall-img, 
+.tbf-pf-card:hover .tbf-pf-card__img { 
+    transform: scale(1.03); 
+}
+
+/* Card Titles */
+.tbf-pf-card__title {
+    margin: 0;
+    padding: 12px 15px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    background: #fff;
+    border-top: 1px solid #f0f0f0;
+}
+
+.tbf-pf-card__title a { color: #2c3338; text-decoration: none; }
+.tbf-pf-card__title a:hover { color: #2271b1; }
+
+/* Video / Audio Badges */
+.tbf-video-badge, .tbf-pf-card__badge, .tbf-type-icon { 
+    position: absolute; 
+    top: 12px; 
+    right: 12px; 
+    background: rgba(0,0,0,0.65); 
+    color: #fff; 
+    width: 32px !important; 
+    height: 32px !important; 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 14px !important; 
+    line-height: 1 !important;
+    z-index: 2; 
+    pointer-events: none; 
+    backdrop-filter: blur(2px);
 }
 
 /* Admin Hover Controls */
@@ -49,7 +110,7 @@
 
 /* Captions & Lightbox */
 .tbf-caption { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); color: #fff; padding: 20px 15px 10px; font-size: 13px; line-height: 1.4; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
-.caption-mode-hover .tbf-media-card:hover .tbf-caption { opacity: 1; }
+.caption-mode-hover .tbf-grid-item:hover .tbf-caption, .caption-mode-hover .tbf-pf-card:hover .tbf-caption { opacity: 1; }
 .caption-mode-always .tbf-caption { opacity: 1; position: relative; background: #fff; color: #333; padding: 10px; }
 .caption-mode-never .tbf-caption { display: none; }
 
@@ -84,19 +145,18 @@
 .tbfnmi-modal-close { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #555; z-index:10; }
 .tbfnmi-modal-close:hover { color: #d63638; }
 
-/* NEW: Staging Wrapper - Critical for scroll */
 #tbfnmi-upload-staging {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-height: 0; /* Forces child to scroll instead of expand */
+    min-height: 0; 
     overflow: hidden;
     margin-bottom: 10px;
 }
 
 .tbfnmi-queue-list { 
     flex: 1; 
-    overflow-y: auto; /* Scroll triggers here */
+    overflow-y: auto; 
     margin-bottom: 20px; 
     border: 1px solid #eee; border-radius: 6px; 
     padding: 10px; background: #fafafa; 
