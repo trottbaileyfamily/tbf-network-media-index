@@ -1,7 +1,7 @@
 ﻿/* global jQuery, _, Backbone, wp, tbfbkm_modal_data */
 /* =========================================================
    File: assets/js/modal.js
-   Version: 6.9.24 (Audio/Video Thumbnail Badges)
+   Version: 7.0.1.6 (Gutenberg State Sync & Nonce Security)
    ========================================================= */
 (function ($) {
     if (!window.wp || !wp.media || !window.tbfbkm_modal_data) return;
@@ -51,6 +51,23 @@
                 dataType: 'json', 
                 data: Object.assign({ action: 'tbfbkm_proxy_url', nonce: tbfbkm_modal_data.nonce }, payload || {}) 
             }); 
+        },
+        // NEW: Direct Database injection for Gutenberg save protection
+        setFeaturedRemote(postId, url, mime, type) {
+            return $.ajax({
+                url: tbfbkm_modal_data.ajax,
+                method: 'POST',
+                cache: false,
+                dataType: 'json',
+                data: {
+                    action: 'tbfbkm_set_featured_remote',
+                    nonce: tbfbkm_modal_data.nonce,
+                    post_id: postId,
+                    url: url,
+                    mime: mime,
+                    type: type
+                }
+            });
         }
     };
 
@@ -126,7 +143,12 @@
                 type: m.media_type || 'image',
                 width: w,
                 height: h,
-                sizes: { full: { url: finalUrl, width: w, height: h } }
+                sizes: { full: { url: finalUrl, width: w, height: h } },
+                // NEW: Tag the Backbone model so we can identify it in Gutenberg
+                _is_tbfbkm: true,
+                _tbfbkm_url: m.url,
+                _tbfbkm_mime: m.mime || 'image/jpeg',
+                _tbfbkm_type: m.media_type || 'image'
             });
 
             if (selection) selection.add(att);
@@ -261,7 +283,6 @@
             return this;
         },
         
-        // Custom Audio Thumbnail Handler
         onSetAudioThumb(e) {
             e.preventDefault();
             const btn = $(e.currentTarget);
@@ -292,16 +313,12 @@
                 }).done((res) => {
                     if (res.success) {
                         btn.text('Thumbnail Set!');
-                        
                         $('#tbfbkm-audio-thumb-preview').attr('src', thumbUrl);
-                        
                         if (this.itemsMap && this.itemsMap[key]) {
                             this.itemsMap[key].set('thumb', thumbUrl);
                         }
-                        
                         const gridItemImg = this.$(`.tbfbkm-item[data-tbfbkm-key="${key}"] .thumbnail`);
                         gridItemImg.html('<div class="centered tbf-portrait-fix"><img src="' + _.escape(thumbUrl) + '" alt="" style="object-fit:cover; width:100%; height:100%;"></div>');
-                        
                         setTimeout(() => { btn.text(originalText).prop('disabled', false); }, 2000);
                     } else {
                         btn.text('Error Saving').prop('disabled', false);
@@ -463,10 +480,9 @@
                     if (!it.title && it.url) title = it.url.split('/').pop().replace(/\.[^/.]+$/, "");
 
                     let thumbnailHtml = '';
-                    let badgeHtml = ''; // Smart icon overlay system
+                    let badgeHtml = ''; 
                     
                     if (it.media_type === 'audio') {
-                        // Blue music badge for audio
                         badgeHtml = '<div style="position:absolute; top:6px; right:6px; background:#2271b1; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:5; box-shadow:0 2px 4px rgba(0,0,0,0.3); pointer-events:none;"><span class="dashicons dashicons-format-audio" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></div>';
                         
                         if (thumb.match(/\.(mp3|wav|ogg|flac|m4a|aac)$/i) || thumb.indexOf('images/media/audio.png') !== -1) {
@@ -475,7 +491,6 @@
                             thumbnailHtml = '<div class="thumbnail"><div class="centered tbf-portrait-fix"><img src="' + _.escape(thumb) + '" alt="" style="object-fit:cover; width:100%; height:100%;"></div></div>';
                         }
                     } else if (it.media_type === 'video') {
-                        // Dark video badge for video
                         badgeHtml = '<div style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.7); color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:5; box-shadow:0 2px 4px rgba(0,0,0,0.3); pointer-events:none;"><span class="dashicons dashicons-video-alt3" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></div>';
                         
                         if (!it.thumb || it.thumb === it.url || thumb.match(/\.(mp4|webm|mov)$/i)) {
@@ -523,11 +538,62 @@
     const oldBindHandlers = wp.media.view.MediaFrame.Select.prototype.bindHandlers;
     wp.media.view.MediaFrame.Select.prototype.bindHandlers = function () {
         oldBindHandlers.apply(this, arguments);
+        
         this.on('content:render:tbf-network-media', () => {
             const controller = new Controller(this);
             const view = new NetworkMediaView({ controller });
             controller.viewInstance = view;
             this.content.set(view);
+        });
+
+        // NEW: The Bulletproof Gutenberg State Sync
+        // Triggers the exact moment the user clicks the "Select" or "Set featured image" blue button
+        this.on('select', () => {
+            const selection = this.state().get('selection');
+            if (!selection || !selection.length) return;
+            
+            const att = selection.first().toJSON();
+
+            // Only hijack if it is a custom image from the Big King Media tab
+            if (att._is_tbfbkm) {
+                if ( window.wp && wp.data && wp.data.dispatch && wp.data.select ) {
+                    const editorSelect = wp.data.select('core/editor');
+                    const editorDispatch = wp.data.dispatch('core/editor');
+                    
+                    if (editorSelect && editorDispatch) {
+                        const postId = editorSelect.getCurrentPostId();
+                        if (postId) {
+                            const currentMeta = editorSelect.getEditedPostAttribute('meta') || {};
+                            const placeholderId = parseInt(tbfbkm_modal_data.placeholderId, 10) || 0;
+                            
+                            // 1. Pre-emptively sync the custom metadata into Gutenberg's React state
+                            editorDispatch.editPost({
+                                meta: Object.assign({}, currentMeta, {
+                                    _tbfbkm_featured_url: att._tbfbkm_url,
+                                    _tbfbkm_featured_mime: att._tbfbkm_mime,
+                                    _tbfbkm_featured_type: att._tbfbkm_type
+                                })
+                            });
+
+                            // 2. Check if this was specifically for the Featured Image sidebar
+                            const isFeatured = this.options.state === 'featured-image' || 
+                                               this.state().id === 'featured-image' || 
+                                               (this.options.title && this.options.title.toLowerCase().indexOf('featured') !== -1);
+
+                            if (isFeatured && placeholderId > 0) {
+                                // 3. Force Gutenberg to accept the generic transparent placeholder ID 
+                                // instead of the proxy ID, keeping it in sync with our PHP logic.
+                                editorDispatch.editPost({
+                                    featured_media: placeholderId
+                                });
+                                
+                                // 4. Hard-save to the database instantly via AJAX as a failsafe
+                                Ajax.setFeaturedRemote(postId, att._tbfbkm_url, att._tbfbkm_mime, att._tbfbkm_type);
+                            }
+                        }
+                    }
+                }
+            }
         });
     };
 })(jQuery);

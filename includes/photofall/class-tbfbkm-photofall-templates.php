@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/photofall/class-tbfbkm-photofall-templates.php
- * Version: 6.9.19 (Fix: Whitelisted Hover Attributes & Restored Admin Controls)
+ * Version: 7.0.1.9 (Complete File - Restored Architecture & Button Removed)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -23,7 +23,7 @@ class TBFBKM_Photofall_Templates {
   }
 
   public static function render_page($data, $settings, $current_args, $filter_options) {
-    self::enqueue_assets($data['max_pages'], $current_args);
+    self::enqueue_assets($data['max_pages'], $data['current_page'], $current_args);
     
     $opts = get_option('tbfbkm_photofall_options', []);
     $is_admin = current_user_can('manage_options') || is_super_admin();
@@ -66,10 +66,6 @@ class TBFBKM_Photofall_Templates {
       <div class="tbf-admin-tabs" style="margin-bottom: 20px; font-weight: bold; font-size: 16px; display: flex; align-items: center;">
           <a href="?tbf_tab=active" style="margin-right: 20px; text-decoration: none; padding-bottom: 5px; border-bottom: <?php echo $tab === 'active' ? '3px solid #2271b1' : 'none'; ?>; color: <?php echo $tab === 'active' ? '#2271b1' : '#555'; ?>;">Live Media</a>
           <a href="?tbf_tab=hidden" style="margin-right: auto; text-decoration: none; padding-bottom: 5px; border-bottom: <?php echo $tab === 'hidden' ? '3px solid #d63638' : 'none'; ?>; color: <?php echo $tab === 'hidden' ? '#d63638' : '#555'; ?>;">Hidden Media</a>
-          
-          <?php if ( !empty($opts['enable_xml_sitemaps']) ): ?>
-              <button type="button" onclick="tbfbkmPingSEO()" class="tbf-btn" style="background:#fff; font-size:12px; border:1px solid #2271b1; color:#2271b1;">Notify Search Engines</button>
-          <?php endif; ?>
       </div>
       <?php endif; ?>
 
@@ -90,7 +86,7 @@ class TBFBKM_Photofall_Templates {
             <?php if (!empty($settings['show_filter_type'])): ?>
                 <div class="tbf-filter-group">
                     <button type="submit" name="tbf_filter" value="all" class="tbf-btn <?php echo esc_attr($current_args['filter'] === 'all' ? 'active' : ''); ?>">All</button>
-                    <?php foreach($settings['allowed_types'] as $t): ?>
+                    <?php foreach($settings['allowed_types'] ?? ['image', 'video', 'audio'] as $t): ?>
                         <button type="submit" name="tbf_filter" value="<?php echo esc_attr($t); ?>" class="tbf-btn <?php echo esc_attr($current_args['filter'] === $t ? 'active' : ''); ?>"><?php echo esc_html(ucfirst($t)); ?>s</button>
                     <?php endforeach; ?>
                 </div>
@@ -165,7 +161,7 @@ class TBFBKM_Photofall_Templates {
 
       <?php if ( $data['max_pages'] > 1 && $tab === 'active' ): ?>
           <div class="tbf-load-more-wrap">
-              <button id="tbf-load-more" class="tbf-btn">Load More</button>
+              <button type="button" id="tbf-load-more" class="tbf-btn">Load More</button>
               <span id="tbf-loader" style="display:none;">Loading...</span>
           </div>
       <?php endif; ?>
@@ -178,7 +174,7 @@ class TBFBKM_Photofall_Templates {
   }
 
   public static function render_single($item, $related, $settings) {
-      self::enqueue_assets(1, ['sort' => $settings['default_sort'] ?? 'date_desc']);
+      self::enqueue_assets(1, 1, ['sort' => $settings['default_sort'] ?? 'date_desc']);
       $caption_mode = !empty($settings['caption_mode']) ? $settings['caption_mode'] : 'hover';
       get_header();
       
@@ -260,7 +256,6 @@ class TBFBKM_Photofall_Templates {
       <?php get_footer();
   }
 
-  // FIX: Whitelisted `onmouseover` and `onmouseout` so the admin controls don't get stripped by AJAX
   public static function get_allowed_html() {
       return [
           'div'    => ['class' => true, 'style' => true, 'onmouseover' => true, 'onmouseout' => true],
@@ -326,10 +321,9 @@ class TBFBKM_Photofall_Templates {
           }
       }
       
-      $admin_nonce = wp_create_nonce('tbfbkm_admin_action');
+      $admin_nonce = wp_create_nonce('tbfbkm_ajax_nonce');
       ob_start();
       
-      // FIX: Restored the inline onmouseover/onmouseout logic so admin controls show correctly
       ?>
       <div class="tbf-grid-item type-<?php echo esc_attr($type); ?>" style="position:relative;" onmouseover="if(this.querySelector('.tbf-pf-admin-controls')) this.querySelector('.tbf-pf-admin-controls').style.display='flex'" onmouseout="if(this.querySelector('.tbf-pf-admin-controls')) this.querySelector('.tbf-pf-admin-controls').style.display='none'">
         
@@ -341,8 +335,8 @@ class TBFBKM_Photofall_Templates {
         <?php endif; ?>
 
         <div class="tbf-media-card">
-            <?php if ($type === 'video'): ?><div class="tbf-video-badge">â–¶</div><?php endif; ?>
-            <?php if ($type === 'audio'): ?><div class="tbf-video-badge" style="background:#2271b1;">ðŸŽµ</div><?php endif; ?>
+            <?php if ($type === 'video'): ?><div class="tbf-video-badge">▶</div><?php endif; ?>
+            <?php if ($type === 'audio'): ?><div class="tbf-video-badge" style="background:#2271b1;">🎵</div><?php endif; ?>
             
             <a class="tbf-pf-card__link" href="<?php echo esc_url($permalink); ?>" onclick="event.preventDefault(); tbfbkm_photofall.open(this.querySelector('img'));">
                 <img src="<?php echo esc_url($src); ?>" 
@@ -412,7 +406,7 @@ class TBFBKM_Photofall_Templates {
       <?php
   }
 
-  private static function enqueue_assets($max_pages = 1, $current_args = []) {
+  private static function enqueue_assets($max_pages = 1, $current_page = 1, $current_args = []) {
       wp_enqueue_style('tbf-photofall', TBFBKM_URL . 'assets/css/photofall-public.css', ['dashicons'], TBFBKM_VER);
       wp_enqueue_script('tbf-photofall', TBFBKM_URL . 'assets/js/photofall-public.js', [], TBFBKM_VER, true);
       
@@ -420,10 +414,10 @@ class TBFBKM_Photofall_Templates {
       
       wp_localize_script('tbf-photofall', 'tbfbkm_data', [
           'ajax_url'    => admin_url('admin-ajax.php'),
-          'nonce'       => wp_create_nonce('tbfbkm_frontend'), 
+          'nonce'       => wp_create_nonce('tbfbkm_ajax_nonce'), 
           'includes_url'=> $includes_url,
-          'max_pages'   => $max_pages,
-          'current_page'=> 1,
+          'max_pages'   => (int)$max_pages,
+          'current_page'=> (int)$current_page,
           'filter'      => isset($current_args['filter']) ? $current_args['filter'] : 'all',
           'source'      => isset($current_args['source']) ? $current_args['source'] : 'all',
           'sort'        => isset($current_args['sort']) ? $current_args['sort'] : '',

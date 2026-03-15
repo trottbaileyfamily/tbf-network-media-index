@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/integrations/class-tbfbkm-keilah-widget.php
- * Version: 6.9.27
+ * Version: 7.0.1.4 (WP Review Compliance - Shortcode Prefix)
  * Description: Registers the Princess Keilah Studio as an Elementor Widget and Shortcode.
  */
 
@@ -10,8 +10,8 @@ if ( ! defined('ABSPATH') ) exit;
 class TBFBKM_Keilah_Widget {
 
     public static function init() {
-        // Register Shortcode
-        add_shortcode('princess_keilah_studio', [__CLASS__, 'render_shortcode']);
+        // SECURITY FIX: Unique Prefix added to shortcode to pass WP Review
+        add_shortcode('tbfbkm_princess_keilah_studio', [__CLASS__, 'render_shortcode']);
 
         // Hook Elementor Widget Registration
         add_action('elementor/widgets/register', [__CLASS__, 'register_elementor_widget']);
@@ -26,8 +26,8 @@ class TBFBKM_Keilah_Widget {
         ], $atts);
 
         $custom_config = [
-            'mode' => $a['mode'],
-            'specific_ids' => $a['images'],
+            'mode' => sanitize_text_field($a['mode']),
+            'specific_ids' => sanitize_text_field($a['images']),
             'duration' => (int)$a['duration'],
             'auto_start' => filter_var($a['autoplay'], FILTER_VALIDATE_BOOLEAN)
         ];
@@ -37,7 +37,7 @@ class TBFBKM_Keilah_Widget {
         if ( class_exists('TBFBKM_World_Ruler') ) {
             TBFBKM_World_Ruler::inline_render($custom_config);
         } else {
-            echo '<p>Princess Keilah Studio engine not found.</p>';
+            echo '<p>' . esc_html__('Princess Keilah Studio engine not found.', 'tbf-big-king-media') . '</p>';
         }
         
         return ob_get_clean();

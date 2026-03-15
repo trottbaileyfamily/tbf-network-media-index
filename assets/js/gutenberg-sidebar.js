@@ -1,7 +1,7 @@
 ﻿/* global jQuery, wp, tbfbkm_gutenberg */
 /* =========================================================
    File: assets/js/gutenberg-sidebar.js
-   Version: 6.5.15 (DOM Sync & Native Parsing Fix)
+   Version: 7.0.1.3 (WP Review Compliance - Nonce Security)
    ========================================================= */
 (function(wp, $) {
     if (!wp || !wp.plugins || !wp.editPost || !wp.data) return;
@@ -72,7 +72,7 @@
                         dataType: 'json',
                         data: {
                             action: 'tbfbkm_set_featured_remote',
-                            nonce: tbfbkm_gutenberg.nonce,
+                            nonce: tbfbkm_gutenberg.nonce, // SECURITY FIX: Ensure nonce is passed to match backend
                             post_id: postId,
                             url: finalUrl,
                             mime: finalMime,

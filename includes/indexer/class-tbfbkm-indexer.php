@@ -1,248 +1,289 @@
 <?php
 /**
  * File: includes/indexer/class-tbfbkm-indexer.php
- * Version: 6.9.19 (Fix: Audio Mime Type Fallback & Single Indexing)
+ * Version: 7.0.2.9 (Raw MySQL Force Creation & Guaranteed Table Healing)
  */
-if ( ! defined('ABSPATH') ) exit;
+
+if ( ! defined('ABSPATH') ) {
+    exit;
+}
 
 class TBFBKM_Indexer {
-  private $db;
-  private $table;
 
-  public function __construct() {
-    global $wpdb;
-    $this->db = $wpdb;
-    $this->table = $wpdb->base_prefix . 'tbfbkm_index';
-  }
-
-  public function table_name(){ return $this->table; }
-
-  public function has_table() {
-    $like = $this->db->esc_like($this->table);
-    return ! empty($this->db->get_var($this->db->prepare("SHOW TABLES LIKE %s", $like)));
-  }
-
-  public function index_single_attachment( $post_id ) {
-      if ( get_post_type($post_id) !== 'attachment' ) return;
-      if ( isset($_REQUEST['action']) && strpos($_REQUEST['action'], 'tbf_nmi') !== false ) return;
-
-      if ( ! $this->has_table() ) $this->create_table();
-      
-      $post = get_post($post_id);
-      $blog_id = get_current_blog_id(); 
-      $row = $this->build_row($blog_id, $post);
-      
-      // Only upsert if it's a valid media type we care about
-      if ( $row && in_array($row['media_type'], ['image', 'video', 'audio']) ) {
-          $this->upsert($row);
-      }
-  }
-
-  public function create_table() {
-    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-    $charset = $this->db->get_charset_collate();
-    
-    $sql = "CREATE TABLE {$this->table} (
-      blog_id BIGINT(20) UNSIGNED NOT NULL,
-      attachment_id BIGINT(20) UNSIGNED NOT NULL,
-      media_type VARCHAR(20) NOT NULL DEFAULT 'image',
-      provider VARCHAR(20) NOT NULL DEFAULT 'self',
-      created_gmt DATETIME NULL,
-      updated_gmt DATETIME NULL,
-      year SMALLINT(4) UNSIGNED NOT NULL DEFAULT 0,
-      month TINYINT(2) UNSIGNED NOT NULL DEFAULT 0,
-      title TEXT NULL,
-      alt TEXT NULL,
-      caption TEXT NULL,
-      url_full TEXT NULL,
-      url_medium TEXT NULL,
-      url_thumb TEXT NULL,
-      poster_url TEXT NULL,
-      content_url TEXT NULL,
-      embed_url TEXT NULL,
-      mime VARCHAR(120) NULL,
-      width INT(11) NOT NULL DEFAULT 0,
-      height INT(11) NOT NULL DEFAULT 0,
-      tag_slug VARCHAR(200) NULL,
-      tags_csv TEXT NULL,
-      PRIMARY KEY  (blog_id, attachment_id),
-      KEY media_type (media_type),
-      KEY created_gmt (created_gmt)
-    ) {$charset};";
-
-    $usage_table = $this->db->base_prefix . 'tbfbkm_usage_map';
-    $sql .= "\nCREATE TABLE {$usage_table} (
-      id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-      media_url VARCHAR(500) NOT NULL,
-      blog_id BIGINT(20) UNSIGNED NOT NULL,
-      post_id BIGINT(20) UNSIGNED NOT NULL,
-      post_title TEXT NULL,
-      permalink TEXT NULL,
-      site_name VARCHAR(250) NULL,
-      PRIMARY KEY  (id),
-      KEY media_url (media_url(191)),
-      KEY blog_post (blog_id, post_id)
-    ) {$charset};";
-
-    dbDelta($sql);
-  }
-
-  public function index_site_batch($blogId, array $args = []) {
-    $blogId = (int)$blogId;
-    $limit = max(50, min(2000, (int)($args['limit'] ?? 500)));
-    $startAfter = max(0, (int)($args['start_after'] ?? 0));
-    
-    if ( ! $this->has_table() ) $this->create_table();
-
-    $scanned = 0; $indexed = 0; $lastId = $startAfter;
-
-    // Single Site Safety: Only switch if we are actually multisite
-    $switched = false;
-    if ( is_multisite() && get_current_blog_id() !== $blogId ) {
-        switch_to_blog($blogId);
-        $switched = true;
+    public static function init() {
+        add_action( 'admin_init', [__CLASS__, 'auto_heal_tables'] );
+        add_action( 'wp_ajax_tbfbkm_process_batch', [__CLASS__, 'process_batch'] );
+        add_action( 'add_attachment', [__CLASS__, 'auto_index_hook'] );
     }
 
-    try {
-      add_filter('posts_where', $where = function($sql) use ($startAfter) {
+    public static function auto_heal_tables() {
         global $wpdb;
-        if ($startAfter > 0) $sql .= $wpdb->prepare(" AND {$wpdb->posts}.ID > %d ", $startAfter);
-        return $sql;
-      });
-      
-      $types = get_post_types(['public' => true], 'names');
-      $types[] = 'attachment'; 
-      
-      $q = new WP_Query([
-        'post_type' => array_values($types), 
-        'post_status' => ['inherit', 'publish'],
-        'posts_per_page' => $limit,
-        'orderby' => 'ID',
-        'order' => 'ASC',
-        'no_found_rows' => true,
-        'cache_results' => false,
-        'update_post_meta_cache' => true,
-        'update_post_term_cache' => false,
-      ]);
-
-      remove_filter('posts_where', $where);
-
-      $posts = (array)$q->posts;
-      $scanned = count($posts);
-      if (!$posts) {
-        if ( $switched ) restore_current_blog();
-        return ['scanned'=>0,'indexed'=>0,'last_id'=>$startAfter,'done'=>true];
-      }
-
-      foreach ($posts as $p) {
-        $lastId = max($lastId, $p->ID);
+        $table_name = $wpdb->base_prefix . 'tbfbkm_index';
         
-        // SEO Crawler for all post types
-        if ( $p->post_type !== 'attachment' ) {
-            if ( class_exists('TBFBKM_SEO_Meta') ) {
-                TBFBKM_SEO_Meta::sync_post_media_usage($p->ID, $p);
-                $indexed++;
+        // Physically check if the table exists in the database
+        $table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) ) === $table_name;
+        
+        if ( ! $table_exists ) {
+            self::create_tables();
+        }
+    }
+
+    public static function create_tables() {
+        global $wpdb;
+        $charset_collate = $wpdb->get_charset_collate();
+        $table_name = $wpdb->base_prefix . 'tbfbkm_index';
+        $usage_table = $wpdb->base_prefix . 'tbfbkm_usage_map';
+
+        // BYPASS dbDelta: Using raw MySQL queries to forcefully generate the tables.
+        // Changed varchar(2000) to TEXT to prevent InnoDB row-size limits from silently killing the build.
+        $sql1 = "CREATE TABLE IF NOT EXISTS `{$table_name}` (
+            `id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `blog_id` bigint(20) NOT NULL,
+            `attachment_id` bigint(20) NOT NULL,
+            `url_full` text NOT NULL,
+            `url_medium` text NOT NULL,
+            `url_thumb` text NOT NULL,
+            `poster_url` text NOT NULL,
+            `title` text NOT NULL,
+            `caption` text NOT NULL,
+            `alt` text NOT NULL,
+            `mime` varchar(100) NOT NULL,
+            `media_type` varchar(20) NOT NULL,
+            `width` int(11) NOT NULL DEFAULT 0,
+            `height` int(11) NOT NULL DEFAULT 0,
+            `year` int(4) NOT NULL DEFAULT 0,
+            `month` int(2) NOT NULL DEFAULT 0,
+            `created_gmt` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `blog_att_unique` (`blog_id`, `attachment_id`),
+            KEY `media_type` (`media_type`),
+            KEY `year_month` (`year`, `month`)
+        ) {$charset_collate};";
+        
+        $wpdb->query( $sql1 );
+
+        $sql2 = "CREATE TABLE IF NOT EXISTS `{$usage_table}` (
+            `id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `media_url` text NOT NULL,
+            `post_id` bigint(20) NOT NULL,
+            `blog_id` bigint(20) NOT NULL,
+            `site_name` varchar(255) NOT NULL,
+            `post_title` text NOT NULL,
+            `permalink` text NOT NULL,
+            PRIMARY KEY (`id`)
+        ) {$charset_collate};";
+        
+        $wpdb->query( $sql2 );
+
+        // HARD VERIFICATION: Did MySQL listen to us?
+        $exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) );
+        if ( $exists !== $table_name ) {
+            error_log( 'TBFBKM CRITICAL ERROR: MySQL violently rejected table creation. Error: ' . $wpdb->last_error );
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function process_batch() {
+        check_ajax_referer( 'tbfbkm_ajax_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( ['message' => 'Unauthorized'] );
+        }
+
+        // FORCE DATABASE CREATION CHECK RIGHT BEFORE SCANNING
+        self::auto_heal_tables();
+
+        $step       = isset( $_POST['step'] ) ? max( 1, (int)$_POST['step'] ) : 1;
+        $offset     = isset( $_POST['offset'] ) ? max( 0, (int)$_POST['offset'] ) : 0;
+        $batch_size = 50;
+
+        if ( is_multisite() ) {
+            $sites = get_sites( ['number' => 1000, 'public' => 1, 'archived' => 0, 'spam' => 0, 'deleted' => 0] );
+            $site_ids = array_map( function( $s ) { return (int)$s->blog_id; }, $sites );
+        } else {
+            $site_ids = [1]; 
+        }
+
+        if ( $step > count( $site_ids ) ) {
+            wp_send_json_success( [
+                'done'     => true, 
+                'message'  => 'Global media indexing complete.', 
+                'progress' => 100
+            ] );
+        }
+
+        $current_blog_id = $site_ids[ $step - 1 ];
+        
+        if ( is_multisite() ) {
+            switch_to_blog( $current_blog_id );
+        }
+
+        global $wpdb;
+        $attachments = $wpdb->get_col( $wpdb->prepare( 
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' ORDER BY ID ASC LIMIT %d OFFSET %d", 
+            $batch_size, 
+            $offset 
+        ) );
+
+        if ( empty( $attachments ) ) {
+            if ( is_multisite() ) {
+                restore_current_blog();
             }
-            continue;
+            
+            $progress = round( ( $step / count( $site_ids ) ) * 100 );
+            
+            wp_send_json_success([
+                'done'     => false,
+                'step'     => $step + 1,
+                'offset'   => 0,
+                'progress' => $progress,
+                'message'  => "Completed scanning site ID: {$current_blog_id}."
+            ]);
         }
 
-        $attId = (int)$p->ID;
-        
-        // Skip our own proxies to prevent loops
-        $all_meta = get_post_meta($attId);
-        $is_proxy = false;
-        if (is_array($all_meta)) {
-            foreach ($all_meta as $key => $val) {
-                if (strpos($key, '_tbfbkm_proxy') !== false || strpos($key, '_tbfbkm_origin') !== false) {
-                    $is_proxy = true; break;
-                }
+        $processed_count = 0;
+        $failed_count = 0;
+        $last_sql_error = '';
+
+        // Execute the insertion loop
+        foreach ( $attachments as $att_id ) {
+            $result = self::index_single_attachment( $att_id, $current_blog_id );
+            
+            if ( is_wp_error( $result ) ) {
+                $failed_count++;
+                $last_sql_error = $result->get_error_message();
+            } elseif ( $result === true ) {
+                $processed_count++;
             }
         }
-        if ($is_proxy) continue;
 
-        $row = $this->build_row($blogId, $p);
-        
-        // Validate media type before indexing to keep junk out of the library
-        if ( $row && in_array($row['media_type'], ['image', 'video', 'audio']) ) {
-            if ($this->upsert($row)) $indexed++;
+        if ( is_multisite() ) {
+            restore_current_blog();
         }
-      }
-      $done = (count($posts) < $limit);
 
-    } catch (Throwable $e) {
-      if ( $switched ) restore_current_blog();
-      return ['scanned'=>$scanned,'indexed'=>$indexed,'last_id'=>$lastId,'done'=>false,'error'=>$e->getMessage()];
+        $progress = round( ( ( $step - 1 ) / count( $site_ids ) ) * 100 );
+        
+        // Output the results directly to the terminal
+        $message = "Indexing site ID: {$current_blog_id} (Processed: {$processed_count}).";
+        if ( $failed_count > 0 ) {
+            $message .= " <span style='color:#ff4444;'>[FAILED: {$failed_count} items. DB Error: " . esc_html( $last_sql_error ) . "]</span>";
+        }
+        
+        wp_send_json_success([
+            'done'     => false,
+            'step'     => $step,
+            'offset'   => $offset + $batch_size,
+            'progress' => $progress,
+            'message'  => $message
+        ]);
     }
 
-    if ( $switched ) restore_current_blog();
-    return ['scanned'=>$scanned,'indexed'=>$indexed,'last_id'=>$lastId,'done'=>$done];
-  }
-  
-  private function build_row($blogId, WP_Post $p) {
-    $attId = (int)$p->ID;
-    $mime = (string)get_post_mime_type($attId);
-    $fullUrl = (string)wp_get_attachment_url($attId);
-    
-    // FIX: Strong Media Type Detection (Mime Type + URL Fallback)
-    $mediaType = 'image'; // Default
-    if ( strpos($mime,'video/') === 0 || preg_match('/\.(mp4|webm|mov|mkv)$/i', $fullUrl) ) {
-        $mediaType = 'video';
-    } elseif ( strpos($mime,'audio/') === 0 || preg_match('/\.(mp3|wav|ogg|flac|m4a|aac)$/i', $fullUrl) ) {
-        $mediaType = 'audio';
+    public static function auto_index_hook( $post_id ) {
+        $blog_id = is_multisite() ? get_current_blog_id() : 1;
+        self::index_single_attachment( $post_id, $blog_id );
     }
 
-    $title = (string)get_the_title($attId);
-    $alt = (string)get_post_meta($attId, '_wp_attachment_image_alt', true);
-    $caption = (string)$p->post_excerpt;
-    $createdGmt = get_post_time('Y-m-d H:i:s', true, $attId);
-    $updatedGmt = get_post_modified_time('Y-m-d H:i:s', true, $attId);
-    $year = (int)get_post_time('Y', true, $attId);
-    $month = (int)get_post_time('m', true, $attId);
-    
-    $mediumUrl = ''; $thumbUrl=''; $width=0; $height=0; $posterUrl=''; $contentUrl=''; $embedUrl='';
+    public static function index_single_attachment( $att_id, $blog_id = null ) {
+        if ( ! $blog_id ) {
+            $blog_id = is_multisite() ? get_current_blog_id() : 1;
+        }
+        
+        $mime = get_post_mime_type( $att_id );
+        if ( ! $mime ) {
+            return false;
+        }
 
-    if ($mediaType === 'image') {
-      $full = wp_get_attachment_image_src($attId, 'full');
-      $med  = wp_get_attachment_image_src($attId, 'medium');
-      $thumb= wp_get_attachment_image_src($attId, 'thumbnail');
-      if (is_array($full)) { $fullUrl = $full[0] ?: $fullUrl; $width=(int)($full[1]??0); $height=(int)($full[2]??0); }
-      if (is_array($med))  { $mediumUrl = $med[0] ?: ''; }
-      if (is_array($thumb)){ $thumbUrl  = $thumb[0] ?: ''; }
-    } else {
-      $contentUrl = $fullUrl;
-      
-      // Check for custom audio thumbnail metadata first (saved by our AJAX tool)
-      $custom_thumb = get_post_meta($attId, '_tbfbkm_custom_thumb_url', true);
-      if ( !empty($custom_thumb) ) {
-          $posterUrl = $custom_thumb;
-          $thumbUrl = $custom_thumb;
-      } else {
-          // Fallback to standard WP poster image
-          $posterId = (int)get_post_thumbnail_id($attId);
-          if ($posterId) {
-            $t = wp_get_attachment_image_src($posterId, 'large');
-            if (is_array($t) && !empty($t[0])) $posterUrl = $t[0];
-            $tt = wp_get_attachment_image_src($posterId, 'thumbnail');
-            if (is_array($tt) && !empty($tt[0])) $thumbUrl = $tt[0];
-          }
-      }
+        $type = 'document';
+        if ( strpos( $mime, 'image/' ) === 0 ) {
+            $type = 'image';
+        } elseif ( strpos( $mime, 'video/' ) === 0 ) {
+            $type = 'video';
+        } elseif ( strpos( $mime, 'audio/' ) === 0 ) {
+            $type = 'audio';
+        }
+
+        if ( ! in_array( $type, ['image', 'video', 'audio'] ) ) {
+            return false; 
+        }
+
+        $url_full = wp_get_attachment_url( $att_id );
+        if ( ! $url_full ) {
+            return false;
+        }
+
+        $post = get_post( $att_id );
+        if ( ! $post ) {
+            return false;
+        }
+
+        $title = isset( $post->post_title ) ? $post->post_title : '';
+        $caption = isset( $post->post_excerpt ) ? $post->post_excerpt : '';
+        $alt = get_post_meta( $att_id, '_wp_attachment_image_alt', true );
+
+        $thumb = '';
+        $medium = '';
+        $poster_url = '';
+
+        if ( $type === 'image' ) {
+            $img_thumb = wp_get_attachment_image_src( $att_id, 'thumbnail' );
+            if ( $img_thumb ) $thumb = $img_thumb[0];
+            
+            $img_med = wp_get_attachment_image_src( $att_id, 'medium_large' );
+            if ( $img_med ) $medium = $img_med[0];
+        } elseif ( $type === 'video' || $type === 'audio' ) {
+            $meta_poster = get_post_meta( $att_id, '_tbfbkm_custom_thumb_url', true );
+            if ( ! empty( $meta_poster ) ) {
+                $poster_url = $meta_poster;
+            }
+        }
+
+        $meta = wp_get_attachment_metadata( $att_id );
+        $width = isset( $meta['width'] ) ? (int)$meta['width'] : 0;
+        $height = isset( $meta['height'] ) ? (int)$meta['height'] : 0;
+
+        $year = (int)mysql2date( 'Y', $post->post_date );
+        $month = (int)mysql2date( 'm', $post->post_date );
+
+        $created_gmt = $post->post_date_gmt;
+        if ( empty( $created_gmt ) || strpos( $created_gmt, '0000-00-00' ) !== false ) {
+            $created_gmt = gmdate( 'Y-m-d H:i:s' );
+        }
+
+        global $wpdb;
+        $table = $wpdb->base_prefix . 'tbfbkm_index';
+
+        $data = [
+            'blog_id'       => $blog_id,
+            'attachment_id' => $att_id,
+            'url_full'      => $url_full,
+            'url_medium'    => $medium,
+            'url_thumb'     => $thumb,
+            'poster_url'    => $poster_url,
+            'title'         => sanitize_text_field( $title ),
+            'caption'       => sanitize_text_field( $caption ),
+            'alt'           => sanitize_text_field( $alt ),
+            'mime'          => $mime,
+            'media_type'    => $type,
+            'width'         => $width,
+            'height'        => $height,
+            'year'          => $year,
+            'month'         => $month,
+            'created_gmt'   => $created_gmt
+        ];
+
+        $formats = [
+            '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s'
+        ];
+
+        // Execute the insertion
+        $result = $wpdb->replace( $table, $data, $formats );
+
+        // Surface actual DB errors if it fails
+        if ( $result === false ) {
+            return new WP_Error( 'db_insert_failed', $wpdb->last_error );
+        }
+
+        return true;
     }
-    
-    return [
-      'blog_id'=>(int)$blogId, 'attachment_id'=>$attId, 'media_type'=>$mediaType,
-      'provider'=>'self', 'created_gmt'=>$createdGmt, 'updated_gmt'=>$updatedGmt,
-      'year'=>$year, 'month'=>$month, 'title'=>$title, 'alt'=>$alt, 'caption'=>$caption,
-      'url_full'=>$fullUrl, 'url_medium'=>$mediumUrl, 'url_thumb'=>$thumbUrl,
-      'poster_url'=>$posterUrl, 'content_url'=>$contentUrl, 'embed_url'=>$embedUrl,
-      'mime'=>$mime, 'width'=>$width, 'height'=>$height, 'tag_slug'=>'', 'tags_csv'=>''
-    ];
-  }
-
-  private function upsert(array $row) {
-    $where = ['blog_id'=>(int)$row['blog_id'], 'attachment_id'=>(int)$row['attachment_id']];
-    $updated = $this->db->update($this->table, $row, $where);
-    if ($updated === false) return false;
-    if ($updated > 0) return true;
-    return ($this->db->insert($this->table, $row) !== false);
-  }
 }

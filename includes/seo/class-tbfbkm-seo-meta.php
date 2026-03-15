@@ -1,7 +1,7 @@
 <?php
 /**
  * File: includes/seo/class-tbfbkm-seo-meta.php
- * Version: 6.8.0 (Deep Integration Backlinks & Elementor/Gutenberg Parsing)
+ * Version: 7.0.1.3 (WP Review Compliance - Late Escaping & Full Feature Restoration)
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -58,17 +58,18 @@ class TBFBKM_SEO_Meta {
         $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE media_type = 'video' ORDER BY created_gmt DESC LIMIT {$limit}");
         
         foreach ($rows as $row) {
-            $loc = home_url('/photo/video/' . $row->blog_id . '-' . $row->attachment_id . '/');
+            $loc = home_url('/photo/video/' . (int)$row->blog_id . '-' . (int)$row->attachment_id . '/');
             $thumb = $row->poster_url ?: $row->url_thumb;
             $title = htmlspecialchars($row->title ?: 'Video', ENT_XML1);
             $desc  = htmlspecialchars($row->caption ?: 'AgriGames Video', ENT_XML1);
             
+            // Late Escaping for WP Review Compliance
             echo "\t<url>\n";
-            echo "\t\t<loc>{$loc}</loc>\n";
+            echo "\t\t<loc>" . esc_url($loc) . "</loc>\n";
             echo "\t\t<video:video>\n";
             echo "\t\t\t<video:thumbnail_loc>" . esc_url($thumb) . "</video:thumbnail_loc>\n";
-            echo "\t\t\t<video:title>{$title}</video:title>\n";
-            echo "\t\t\t<video:description>{$desc}</video:description>\n";
+            echo "\t\t\t<video:title>" . esc_html($title) . "</video:title>\n";
+            echo "\t\t\t<video:description>" . esc_html($desc) . "</video:description>\n";
             echo "\t\t\t<video:player_loc>" . esc_url($row->url_full) . "</video:player_loc>\n";
             echo "\t\t</video:video>\n";
             echo "\t</url>\n";
@@ -79,15 +80,16 @@ class TBFBKM_SEO_Meta {
         $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE media_type = 'image' ORDER BY created_gmt DESC LIMIT {$limit}");
         
         foreach ($rows as $row) {
-            $loc = home_url('/photo/image/' . $row->blog_id . '-' . $row->attachment_id . '/');
-            $imgLoc = esc_url($row->url_full);
+            $loc = home_url('/photo/image/' . (int)$row->blog_id . '-' . (int)$row->attachment_id . '/');
+            $imgLoc = $row->url_full;
             $title = htmlspecialchars($row->title ?: '', ENT_XML1);
             
+            // Late Escaping for WP Review Compliance
             echo "\t<url>\n";
-            echo "\t\t<loc>{$loc}</loc>\n";
+            echo "\t\t<loc>" . esc_url($loc) . "</loc>\n";
             echo "\t\t<image:image>\n";
-            echo "\t\t\t<image:loc>{$imgLoc}</image:loc>\n";
-            if($title) echo "\t\t\t<image:title>{$title}</image:title>\n";
+            echo "\t\t\t<image:loc>" . esc_url($imgLoc) . "</image:loc>\n";
+            if($title) echo "\t\t\t<image:title>" . esc_html($title) . "</image:title>\n";
             echo "\t\t</image:image>\n";
             echo "\t</url>\n";
         }
@@ -110,6 +112,7 @@ class TBFBKM_SEO_Meta {
     $mime  = get_post_mime_type($post->ID);
 
     echo "\n\n";
+    // Late Escaping for WP Review Compliance
     echo '<meta property="og:title" content="' . esc_attr($title) . '" />' . "\n";
     echo '<meta property="og:url" content="' . esc_url(get_permalink($post->ID)) . '" />' . "\n";
     
@@ -161,6 +164,7 @@ class TBFBKM_SEO_Meta {
     $html .= '<ul style="margin: 0; padding-left: 20px; font-size: 0.95em; color: #3c434a;">';
     
     foreach ( $results as $res ) {
+        // Late Escaping for WP Review Compliance
         $html .= '<li style="margin-bottom: 5px;"><a href="' . esc_url($res->permalink) . '" style="color: #2271b1; text-decoration: none; font-weight: 600;" target="_blank" rel="noopener">' . esc_html($res->post_title) . '</a> on ' . esc_html($res->site_name) . '</li>';
     }
     
@@ -188,7 +192,7 @@ class TBFBKM_SEO_Meta {
 
       $urls = [];
 
-      // 1. Standard Content Parsing (src & href for direct media links)
+      // 1. Standard Content Parsing
       if ( preg_match_all('/(?:src|href)="([^"]+\.(?:jpg|jpeg|png|gif|mp4|webm|mov|mp3|wav|ogg|flac|m4a|aac)[^"]*)"/i', $post->post_content, $matches) ) {
           foreach ( $matches[1] as $src ) {
               $urls[] = esc_url_raw(strtok($src, '?'));
@@ -222,7 +226,7 @@ class TBFBKM_SEO_Meta {
           }
       }
 
-      // 4. Remote Featured Meta (Gutenberg Sidebar Integration)
+      // 4. Remote Featured Meta
       $tbf_featured = get_post_meta($post_id, '_tbfbkm_featured_url', true);
       if ( $tbf_featured ) {
           $urls[] = esc_url_raw(strtok($tbf_featured, '?'));
@@ -232,12 +236,12 @@ class TBFBKM_SEO_Meta {
 
       foreach ( $urls as $url ) {
           $wpdb->insert($table, [
-              'media_url'  => $url,
-              'blog_id'    => $blog_id,
-              'post_id'    => $post_id,
-              'post_title' => $title,
-              'permalink'  => $permalink,
-              'site_name'  => $site_name
+              'media_url'  => sanitize_text_field($url),
+              'blog_id'    => (int)$blog_id,
+              'post_id'    => (int)$post_id,
+              'post_title' => sanitize_text_field($title),
+              'permalink'  => esc_url_raw($permalink),
+              'site_name'  => sanitize_text_field($site_name)
           ]);
       }
   }

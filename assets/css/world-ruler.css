@@ -1,449 +1,377 @@
-/*
+/**
  * File: assets/css/world-ruler.css
- * Version: 6.9.5.10 (Princess Keilah - Landscape Intelligence)
- * Description: Styling for the Princess Keilah floating gadget, music player, and playlist manager.
+ * Version: 7.0.1.17
+ * Description: Stylesheet for Princess Keilah Studio
  */
 
-/* ==========================================================================
-   1. MAIN CONTAINER & FLOATING TAB
-   ========================================================================== */
-
-#tbf-world-ruler-container {
+/* =========================================================
+   PRINCESS KEILAH STUDIO - RESILIENT NAMESPACE
+   ========================================================= */
+#tbfbkm-world-ruler {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
     z-index: 999999;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    /* Soft shadow for depth */
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    border-radius: 30px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    pointer-events: none; 
 }
 
-/* Minimized Pill Tab */
-#tbf-wr-tab {
-    background: #111;
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 30px;
+#tbfbkm-world-ruler * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+#tbfbkm-world-ruler button {
+    all: unset;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    user-select: none;
-    transition: transform 0.2s ease, background 0.2s ease;
+    justify-content: center;
+    color: var(--wr-txt);
+    transition: all 0.2s;
 }
 
-#tbf-wr-tab:hover {
-    transform: scale(1.05);
-    background: #222;
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Hide tab when gadget is expanded */
-#tbf-world-ruler-container.expanded #tbf-wr-tab {
-    display: none;
-}
-
-/* ==========================================================================
-   2. EXPANDED GADGET (THE BOX)
-   ========================================================================== */
-
-#tbf-wr-gadget {
-    display: none;
-    width: 340px;
-    height: 520px;
-    background: rgba(18, 18, 24, 0.95);
-    /* Glassmorphism Blur */
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    flex-direction: column;
-}
-
-#tbf-world-ruler-container.expanded {
-    border-radius: 12px;
-}
-
-#tbf-world-ruler-container.expanded #tbf-wr-gadget {
-    display: flex;
-}
-
-/* ==========================================================================
-   3. HEADER (DRAG HANDLE)
-   ========================================================================== */
-
-.wr-header {
-    padding: 12px 15px;
-    background: rgba(255, 255, 255, 0.08);
+/* =========================================================
+   BOTTOM BAR (Expanded State)
+   ========================================================= */
+#wr-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 600px;
+    height: 64px;
+    background: var(--wr-bg-base);
+    backdrop-filter: blur(15px);
+    border-top: 1px solid rgba(255,255,255,0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    flex-shrink: 0;
-    cursor: grab; /* Indicates draggable */
-    user-select: none;
+    padding: 0 15px;
+    pointer-events: auto;
+    border-radius: 20px 20px 0 0;
+    transition: all 0.4s ease;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
 }
 
-.wr-header:active {
-    cursor: grabbing;
+.wr-bar-group { 
+    display: flex; 
+    align-items: center; 
+    gap: 15px; 
+    flex: 1; 
 }
 
-.wr-title {
-    color: #fff;
-    font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    pointer-events: none;
+.wr-bar-left { justify-content: flex-start; }
+.wr-bar-center { justify-content: center; }
+.wr-bar-right { justify-content: flex-end; }
+
+.wr-icon-btn { 
+    font-size: 20px; 
+    width: 36px; 
+    height: 36px; 
+    border-radius: 50%; 
+    opacity: 0.7; 
 }
 
-.wr-controls {
-    display: flex;
-    gap: 12px;
+.wr-icon-btn:hover { 
+    opacity: 1; 
+    background: rgba(255,255,255,0.1); 
+    color: var(--wr-acc); 
 }
 
-.wr-controls .dashicons {
-    color: #aaa;
-    cursor: pointer;
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-    transition: color 0.2s;
+.wr-icon-btn.active { 
+    opacity: 1; 
+    color: var(--wr-acc); 
 }
 
-.wr-controls .dashicons:hover {
-    color: #fff;
-}
-
-/* ==========================================================================
-   4. STAGE (SLIDESHOW AREA)
-   ========================================================================== */
-
-.wr-stage {
-    flex: 1;
+/* =========================================================
+   SEEK CIRCLE & PLAY BUTTON
+   ========================================================= */
+#wr-play-wrapper {
     position: relative;
-    background: #000;
-    overflow: hidden;
-    cursor: default; /* Reset cursor inside */
-    min-height: 80px; /* Allow shrinking but keep minimum */
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5); /* Contrast circle behind the button */
+    border-radius: 50%;
 }
 
-#wr-loading {
+.wr-progress-ring { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    transform: rotate(-90deg); 
+    pointer-events: none; 
+}
+
+.wr-ring-bg { 
+    fill: transparent; 
+    stroke: rgba(255,255,255,0.15); 
+}
+
+.wr-ring-fill { 
+    fill: transparent; 
+    stroke: var(--wr-acc); 
+    stroke-linecap: round; 
+    transition: stroke-dashoffset 0.1s linear; 
+}
+
+#wr-btn-play {
+    width: 38px;
+    height: 38px;
+    background: transparent; 
+    color: #fff;
+    border-radius: 50%;
+    z-index: 2;
+}
+
+#wr-btn-play:hover { 
+    transform: scale(1.05); 
+    color: var(--wr-acc); 
+}
+
+/* =========================================================
+   SLIDESHOW PANE
+   ========================================================= */
+#wr-slideshow-pane {
     position: absolute;
-    top: 50%;
+    bottom: 75px;
     left: 50%;
-    transform: translate(-50%, -50%);
-    color: #666;
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    z-index: 1;
+    transform: translateX(-50%) translateY(20px);
+    width: calc(100% - 20px);
+    max-width: 400px;
+    height: 220px;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
 }
 
-.wr-slide {
-    position: absolute;
-    top: 0;
-    left: 0;
+#wr-slideshow-pane.open { 
+    opacity: 1; 
+    transform: translateX(-50%) translateY(0); 
+    pointer-events: auto; 
+}
+
+#wr-slideshow-header {
+    position: absolute; 
+    top: 0; 
+    left: 0; 
     width: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 8px 15px; 
+    color: #fff; 
+    z-index: 50; 
+    backdrop-filter: blur(4px);
+}
+
+#wr-slide-title { 
+    font-size: 13px; 
+    font-weight: 600; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    max-width: 70%; 
+}
+
+.wr-window-controls button { 
+    width: 24px; 
+    height: 24px; 
+    background: rgba(255,255,255,0.2); 
+    border-radius: 4px; 
+    margin-left: 5px; 
+    font-size: 14px; 
+}
+
+.wr-window-controls button:hover { 
+    background: var(--wr-acc); 
+}
+
+/* =========================================================
+   VISUALS & VERTICAL PANNING
+   ========================================================= */
+#wr-visuals { 
+    width: 100%; 
+    height: 100%; 
+    position: relative; 
+}
+
+@keyframes wrPanVertical { 
+    0% { object-position: 50% 0%; } 
+    100% { object-position: 50% 100%; } 
+}
+
+.wr-visual-link {
+    display: block; 
+    width: 100%; 
     height: 100%;
-    object-fit: cover;
-    opacity: 0;
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    opacity: 0; 
     transition: opacity 1s ease-in-out;
     pointer-events: none;
 }
 
-.wr-slide.active {
-    opacity: 1;
-    pointer-events: auto; /* Allow double-click */
+.wr-visual-link.active { 
+    opacity: 1; 
+    pointer-events: auto; 
 }
 
-/* Slide Navigation Arrows */
+.wr-visual-link img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    object-position: 50% 50%; 
+}
+
+.wr-visual-link.active img { 
+    animation: wrPanVertical 20s ease-in-out alternate infinite; 
+}
+
+/* =========================================================
+   NAVIGATION ARROWS (FIXED Z-INDEX)
+   ========================================================= */
 .wr-slide-nav {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 40px;
-    display: flex;
-    align-items: center;
+    position: absolute; 
+    top: 50%; 
+    transform: translateY(-50%);
+    width: 40px; 
+    height: 40px; 
+    background: rgba(0,0,0,0.6); 
+    color: #fff;
+    border-radius: 50%; 
+    z-index: 50; 
+    display: flex; 
+    align-items: center; 
     justify-content: center;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.3);
-    font-size: 24px;
+    opacity: 0.8; 
+    transition: all 0.2s; 
     cursor: pointer;
-    z-index: 10;
-    transition: all 0.2s ease;
-    user-select: none;
+    pointer-events: auto; 
 }
 
-.wr-slide-nav:hover {
-    background: rgba(0, 0, 0, 0.4);
-    color: #fff;
+.wr-slide-nav:hover { 
+    opacity: 1; 
+    background: var(--wr-acc); 
 }
 
-.wr-prev-slide { left: 0; }
-.wr-next-slide { right: 0; }
+#wr-slide-nav-prev { left: 10px; }
+#wr-slide-nav-next { right: 10px; }
 
-/* ==========================================================================
-   5. PLAYLIST OVERLAY (DRAWER)
-   ========================================================================== */
-
-#wr-playlist-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 15, 20, 0.98); 
-    z-index: 20;
-    display: flex;
-    flex-direction: column;
-    transform: translateY(100%); 
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#wr-playlist-overlay.active {
-    transform: translateY(0); 
-}
-
-.wr-overlay-header {
-    padding: 12px 15px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.05);
-    flex-shrink: 0;
-}
-
-.wr-overlay-title {
-    font-weight: 700;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-#wr-overlay-content {
-    flex: 1;
+/* =========================================================
+   PLAYLIST PANE (70% Opacity Overlay)
+   ========================================================= */
+#wr-playlist-pane {
+    position: absolute; 
+    bottom: 75px; 
+    left: 50%; 
+    transform: translateX(-50%) translateY(20px);
+    width: calc(100% - 20px); 
+    max-width: 400px; 
+    height: 220px; 
+    background: var(--wr-bg-70);
+    backdrop-filter: blur(10px);
+    border-radius: 12px; 
+    border: 1px solid rgba(255,255,255,0.1); 
     overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+    opacity: 0; 
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    z-index: 60; 
+}
+
+#wr-playlist-pane.open { 
+    opacity: 1; 
+    transform: translateX(-50%) translateY(0); 
+    pointer-events: auto; 
+}
+
+.wr-pl-item { 
+    padding: 12px 15px; 
+    font-size: 13px; 
+    color: var(--wr-txt); 
+    border-bottom: 1px solid rgba(255,255,255,0.05); 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    cursor: pointer; 
+    transition: 0.2s; 
+}
+
+.wr-pl-item::before { content: '🎵'; opacity: 0.3; font-size: 10px; }
+.wr-pl-item:hover { background: rgba(255,255,255,0.1); }
+.wr-pl-item.playing { background: rgba(255,255,255,0.15); color: var(--wr-acc); font-weight: bold; }
+.wr-pl-item.playing::before { content: '▶'; opacity: 1; color: var(--wr-acc); }
+
+/* SLEEK DESKTOP SCROLLBAR FOR PLAYLIST */
+#wr-playlist-pane::-webkit-scrollbar { width: 6px; }
+#wr-playlist-pane::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 6px; margin: 4px; }
+#wr-playlist-pane::-webkit-scrollbar-thumb { background: var(--wr-acc); border-radius: 6px; }
+
+/* =========================================================
+   MINIMIZED STATE
+   ========================================================= */
+#wr-btn-restore { 
+    display: none !important; 
+}
+
+.wr-global-minimized #wr-bottom-bar {
+    background: transparent !important; 
+    border: none !important; 
+    backdrop-filter: none !important;
+    box-shadow: none !important; 
+    width: auto; 
+    right: 20px; 
+    left: auto; 
+    transform: none; 
+    bottom: 20px; 
     padding: 0;
 }
 
-#wr-overlay-content::-webkit-scrollbar { width: 6px; }
-#wr-overlay-content::-webkit-scrollbar-track { background: #111; }
-#wr-overlay-content::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-
-.wr-pl-item {
-    padding: 15px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    color: #ddd;
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    align-items: center;
+.wr-global-minimized .wr-bar-center, 
+.wr-global-minimized .wr-bar-right, 
+.wr-global-minimized #wr-btn-prev, 
+.wr-global-minimized #wr-btn-next { 
+    display: none !important; 
 }
 
-.wr-pl-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+.wr-global-minimized #wr-btn-restore { 
+    display: flex !important; 
+    width: 28px; 
+    height: 28px; 
+    background: rgba(0,0,0,0.7); 
+    border-radius: 50%; 
+    margin-right: 10px; 
+    color: #fff; 
 }
 
-.wr-pl-track {
-    padding: 12px 15px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    color: #bbb;
-    cursor: pointer;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.2s;
+.wr-global-minimized #wr-btn-restore:hover { 
+    background: var(--wr-acc); 
 }
 
-.wr-pl-track:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+.wr-global-minimized #wr-slideshow-pane, 
+.wr-global-minimized #wr-playlist-pane { 
+    display: none !important; 
 }
 
-.wr-pl-track.active {
-    background: rgba(34, 113, 177, 0.15);
-    color: #fff;
-    border-left: 3px solid #2271b1;
-    padding-left: 12px; 
-}
-
-/* ==========================================================================
-   6. AUDIO PLAYER & CONTROLS
-   ========================================================================== */
-
-.wr-player {
-    padding: 15px;
-    background: #1a1a1a;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    flex-shrink: 0;
-}
-
-.wr-track-info {
-    color: #fff;
-    font-size: 12px;
-    margin-bottom: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: center;
-    font-weight: 500;
-    opacity: 0.9;
-}
-
-.wr-audio-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    justify-content: space-between;
-}
-
-.wr-audio-btn {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    outline: none;
-}
-
-.wr-audio-btn:hover {
-    background: #2271b1; 
-    color: #fff;
-    transform: scale(1.1);
-}
-
-.wr-audio-btn.active {
-    background: #2271b1;
-    box-shadow: 0 0 10px rgba(34, 113, 177, 0.5);
-}
-
-.wr-audio-btn.small {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
-    background: transparent;
-    color: #888;
-}
-
-.wr-audio-btn.small:hover {
-    background: rgba(255,255,255,0.1);
-    color: #fff;
-}
-
-.wr-audio-btn.small.active {
-    color: #2271b1;
-    background: rgba(34, 113, 177, 0.1);
-    box-shadow: none;
-}
-
-#wr-audio-element {
-    flex: 1;
-    height: 32px;
-    outline: none;
-    width: 100%;
-    border-radius: 20px;
-}
-
-/* ==========================================================================
-   7. RESPONSIVE INTELLIGENCE
-   ========================================================================== */
-
-/* A. MOBILE PORTRAIT (The Center Card) */
-@media (max-width: 480px) and (orientation: portrait) {
-    #tbf-world-ruler-container {
-        bottom: 15px; 
-        right: 15px;
-        left: 15px; 
-        width: auto;
-        border-radius: 16px;
-    }
-
-    #tbf-wr-gadget {
-        width: 100%;
-        height: 260px; /* Short for portrait */
-        max-width: none;
-        border-radius: 16px;
-    }
-
-    .wr-header { padding: 8px 12px; }
-    .wr-title { font-size: 11px; }
-    .wr-player { padding: 10px 12px; }
-    .wr-audio-btn { width: 30px; height: 30px; }
-}
-
-/* B. MOBILE LANDSCAPE (The "Corner Pocket" - NEW) */
-/* Targets Short Screens (Landscape Phones) */
-@media (max-height: 500px) {
-    #tbf-world-ruler-container {
-        /* Detach from center, stick to corner */
-        left: auto !important; 
-        right: 10px !important;
-        bottom: 10px !important;
-        top: auto !important;
-        width: auto !important;
-    }
-
-    #tbf-wr-gadget {
-        width: 320px; /* Narrow card width */
-        height: 85vh; /* Fit vertical screen comfortably */
-        max-height: 280px; /* Never exceed 280px tall */
-        border-radius: 12px;
-    }
-
-    /* Micro UI for Landscape */
-    .wr-header { padding: 6px 10px; min-height: 30px; }
-    .wr-title { font-size: 10px; }
-    .wr-controls .dashicons { font-size: 16px; width: 16px; height: 16px; }
-    
-    .wr-stage { min-height: 60px; } /* Squeeze visual */
-    
-    .wr-player { padding: 6px 10px; }
-    .wr-track-info { font-size: 10px; margin-bottom: 4px; }
-    .wr-audio-btn { width: 26px; height: 26px; }
-    #wr-audio-element { height: 24px; }
-}
-
-/* ==========================================================================
-   8. MAXIMIZED MODE (THEATER)
-   ========================================================================== */
-
-#tbf-world-ruler-container.maximized {
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    border-radius: 0;
-    transform: none !important;
-    z-index: 9999999;
-}
-
-#tbf-world-ruler-container.maximized #tbf-wr-gadget {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-    border: none;
-    max-height: none; /* Override landscape limit */
-}
-
-#tbf-world-ruler-container.maximized .wr-stage {
-    flex: 1; 
+/* =========================================================
+   RESPONSIVE: MOBILE LANDSCAPE
+   ========================================================= */
+@media screen and (max-height: 450px) and (orientation: landscape) {
+    #wr-slideshow-pane { height: 160px; bottom: 65px; }
+    #wr-playlist-pane { height: 160px; bottom: 65px; }
 }
